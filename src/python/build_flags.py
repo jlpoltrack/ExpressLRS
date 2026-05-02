@@ -145,8 +145,10 @@ if '-DRADIO_SX127X=1' in build_flags or '-DRADIO_LR1121=1' in build_flags:
     # disallow setting 2400s for 900
     if '-DRADIO_SX127X=1' in build_flags and \
             (fnmatch.filter(build_flags, '*-DRegulatory_Domain_ISM_2400') or
-             fnmatch.filter(build_flags, '*-DRegulatory_Domain_EU_CE_2400')):
-        print_error('Regulatory_Domain 2400 not compatible with RADIO_SX127X/RADIO_LR1121')
+             fnmatch.filter(build_flags, '*-DRegulatory_Domain_ISM_2400_Upper') or
+             fnmatch.filter(build_flags, '*-DRegulatory_Domain_EU_CE_2400') or
+             fnmatch.filter(build_flags, '*-DRegulatory_Domain_EU_CE_2400_Upper')):
+        print_error('Regulatory_Domain 2400 not compatible with RADIO_SX127X')
 
     # require a domain be set for 900
     if not fnmatch.filter(build_flags, '*-DRegulatory_Domain*'):
@@ -172,9 +174,10 @@ else:
     json_flags['domain'] = 0
 
 # Remove ISM_2400 domain flag if not unit test, it is defined per target config
-if fnmatch.filter(build_flags, '*Regulatory_Domain_ISM_2400*') and \
+# Use exact match (no trailing wildcard) so ISM_2400_Upper is not also stripped
+if fnmatch.filter(build_flags, '*Regulatory_Domain_ISM_2400') and \
         target_name != "NATIVE":
-    build_flags = [f for f in build_flags if "Regulatory_Domain_ISM_2400" not in f]
+    build_flags = [f for f in build_flags if not fnmatch.fnmatch(f, '*Regulatory_Domain_ISM_2400')]
 
 # Slim down the ESP8266 targets by not force-including float in scanf/printf
 if env.get('PIOPLATFORM', '') == 'espressif8266':

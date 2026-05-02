@@ -11,7 +11,7 @@
 ### BINDING PHRASE: ###
 # Uncomment the line below to use a hardcoded binding phrase
 # Leave commented to use traditional binding
-#-DMY_BINDING_PHRASE="default ExpressLRS binding phrase"
+-DMY_BINDING_PHRASE="123890"
 
 
 ### REGULATORY DOMAIN: ###
@@ -24,12 +24,14 @@
 #-DRegulatory_Domain_EU_433
 #-DRegulatory_Domain_US_433
 #-DRegulatory_Domain_US_433_WIDE
-#-DRegulatory_Domain_FCC_915
+-DRegulatory_Domain_FCC_915
 #-DRegulatory_Domain_ISM_2400
+-DRegulatory_Domain_ISM_2400_Upper
 #-DRegulatory_Domain_EU_CE_2400
+#-DRegulatory_Domain_EU_CE_2400_Upper
 
 ### PERFORMANCE OPTIONS: ###
-
+w
 -DLOCK_ON_FIRST_CONNECTION
 
 # For TX devices with fans, FAN_MIN_RUNTIME keeps the fan running even after the power level has

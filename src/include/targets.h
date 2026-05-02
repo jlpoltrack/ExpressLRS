@@ -47,6 +47,10 @@ extern bool pwmSerialDefined;
 
 #if defined(RADIO_SX128X)
 #define Regulatory_Domain_ISM_2400 1
+// If EU_CE_2400_Upper is selected, also define EU_CE_2400 to enable LBT and CE power limits
+#if defined(Regulatory_Domain_EU_CE_2400_Upper) && !defined(Regulatory_Domain_EU_CE_2400)
+#define Regulatory_Domain_EU_CE_2400 1
+#endif
 // ISM 2400 band is in use => undefine other requlatory domain defines
 #undef Regulatory_Domain_AU_915
 #undef Regulatory_Domain_EU_868
@@ -58,6 +62,10 @@ extern bool pwmSerialDefined;
 #undef Regulatory_Domain_US_433_WIDE
 
 #elif defined(RADIO_SX127X) || defined(RADIO_LR1121)
+// If EU_CE_2400_Upper is selected for LR1121, also define EU_CE_2400 to enable LBT and CE power limits
+#if defined(RADIO_LR1121) && defined(Regulatory_Domain_EU_CE_2400_Upper) && !defined(Regulatory_Domain_EU_CE_2400)
+#define Regulatory_Domain_EU_CE_2400 1
+#endif
 #if !(defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_FCC_915) || \
         defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || \
         defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || \

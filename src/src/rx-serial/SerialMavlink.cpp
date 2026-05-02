@@ -30,6 +30,7 @@ SerialMavlink::SerialMavlink(Stream &out, Stream &in):
 
 uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
+    /*
     if (!frameAvailable) {
         return DURATION_IMMEDIATELY;
     }
@@ -60,8 +61,10 @@ uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint3
     mavlink_msg_rc_channels_override_encode(this_system_id, this_component_id, &msg, &rc_override);
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
     _outputPort->write(buf, len);
-    
+
     return MAVLINK_RC_PACKET_INTERVAL;
+    */
+    return DURATION_NEVER;
 }
 
 int SerialMavlink::getMaxSerialReadSize()

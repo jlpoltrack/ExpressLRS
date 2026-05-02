@@ -25,12 +25,16 @@ const fhss_config_t domains[] = {
 #if defined(RADIO_LR1121)
 const fhss_config_t domainsDualBand[] = {
     {
-    #if defined(Regulatory_Domain_EU_CE_2400)
-        "CE_LBT",
+    #if defined(Regulatory_Domain_EU_CE_2400_Upper)
+        "CE_LBT",  FREQ_HZ_TO_REG_VAL(2424400000), FREQ_HZ_TO_REG_VAL(2479400000), 56, 2452000000
+    #elif defined(Regulatory_Domain_EU_CE_2400)
+        "CE_LBT",  FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000
+    #elif defined(Regulatory_Domain_ISM_2400_Upper)
+        "ISM2G4U", FREQ_HZ_TO_REG_VAL(2424400000), FREQ_HZ_TO_REG_VAL(2479400000), 56, 2452000000
     #else
-        "ISM2G4",
+        "ISM2G4",  FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000
     #endif
-    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000}
+    }
 };
 #endif
 
@@ -39,12 +43,16 @@ const fhss_config_t domainsDualBand[] = {
 
 const fhss_config_t domains[] = {
     {
-    #if defined(Regulatory_Domain_EU_CE_2400)
-        "CE_LBT",
+    #if defined(Regulatory_Domain_EU_CE_2400_Upper)
+        "CE_LBT",  FREQ_HZ_TO_REG_VAL(2424400000), FREQ_HZ_TO_REG_VAL(2479400000), 56, 2452000000
+    #elif defined(Regulatory_Domain_EU_CE_2400)
+        "CE_LBT",  FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000
+    #elif defined(Regulatory_Domain_ISM_2400_Upper)
+        "ISM2G4U", FREQ_HZ_TO_REG_VAL(2424400000), FREQ_HZ_TO_REG_VAL(2479400000), 56, 2452000000
     #elif defined(Regulatory_Domain_ISM_2400)
-        "ISM2G4",
+        "ISM2G4",  FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000
     #endif
-    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000}
+    }
 };
 #endif
 

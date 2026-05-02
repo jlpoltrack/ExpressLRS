@@ -124,7 +124,7 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
                 // mAh
                 crsfbatt.p.capacity = 0;
                 if (battery_status.current_consumed > 0){ // int32_t, -1 means invalid
-                    crsfbatt.p.capacity = htobe32(std::min(((uint32_t) battery_status.current_consumed), (uint32_t) 0xFFFFFFU)); // 24bit value
+                    crsfbatt.p.capacity = htobe32(std::min(((uint32_t) battery_status.current_consumed), (uint32_t) 0xFFFFFFU)) >> 8; // 24bit value
                 }
                 // 0-100%
                 crsfbatt.p.remaining = 0;
@@ -256,6 +256,45 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
                                                0x5005,
                                                format_velandyaw(vfr_hud.climb, vfr_hud.airspeed, vfr_hud.groundspeed, vfr_hud.heading)
                                                );
+                break;
+            }
+            case MAVLINK_MSG_ID_SYSTEM_TIME: {
+                mavlink_system_time_t system_time;
+                mavlink_msg_system_time_decode(&msg, &system_time);
+                // SYSTEM_TIME.time_unix_usec is non-zero only when AP::rtc() has a valid time source
+                if (system_time.time_unix_usec == 0) {
+                    break;
+                }
+                time_t time_unix = (time_t)(system_time.time_unix_usec / 1000000);
+                struct tm *time_info = gmtime(&time_unix);
+                CRSF_MK_FRAME_T(crsf_sensor_gps_time_t)
+                crsftime = {0};
+                crsftime.p.year = htobe16(time_info->tm_year + 1900);
+                crsftime.p.month = time_info->tm_mon + 1;
+                crsftime.p.day = time_info->tm_mday;
+                crsftime.p.hour = time_info->tm_hour;
+                crsftime.p.minute = time_info->tm_min;
+                crsftime.p.second = time_info->tm_sec;
+                crsftime.p.millisecond = 0; // intentionally not populated, avoids 64-bit maths
+                crsfRouter.SetHeaderAndCrc((crsf_header_t *)&crsftime, CRSF_FRAMETYPE_GPS_TIME, CRSF_FRAME_SIZE(sizeof(crsf_sensor_gps_time_t)));
+                crsfRouter.deliverMessageTo(destination, &crsftime.h);
+                break;
+            }
+            case MAVLINK_MSG_ID_SCALED_PRESSURE: {
+                mavlink_scaled_pressure_t scaled_pressure;
+                mavlink_msg_scaled_pressure_decode(&msg, &scaled_pressure);
+                // Single-value temperature frame; the global crsf_sensor_temp_t reserves space for 20 samples
+                struct PACKED crsf_temp_single_t {
+                    uint8_t source_id;
+                    int16_t temperature;
+                };
+                CRSF_MK_FRAME_T(crsf_temp_single_t)
+                crsftemp = {0};
+                crsftemp.p.source_id = 1; // 1 = Ambient (per CRSF temp source_id convention)
+                // cdegC -> ddegC
+                crsftemp.p.temperature = htobe16((int16_t)(scaled_pressure.temperature / 10));
+                crsfRouter.SetHeaderAndCrc((crsf_header_t *)&crsftemp, CRSF_FRAMETYPE_TEMP, CRSF_FRAME_SIZE(sizeof(crsf_temp_single_t)));
+                crsfRouter.deliverMessageTo(destination, &crsftemp.h);
                 break;
             }
             case MAVLINK_MSG_ID_HOME_POSITION: {

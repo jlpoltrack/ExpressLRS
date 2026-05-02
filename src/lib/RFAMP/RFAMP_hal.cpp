@@ -15,6 +15,9 @@ void RFAMP_hal::init()
     DBGLN("RFAMP_hal Init");
 
 #if defined(PLATFORM_ESP32)
+    #ifndef GPIO_PIN_BACKPACK_BOOT
+    #define GPIO_PIN_BACKPACK_BOOT UNDEF_PIN
+    #endif
     #define SET_BIT(n) ((n != UNDEF_PIN) ? 1ULL << n : 0)
 
     txrx_disable_clr_bits = 0;
@@ -23,11 +26,13 @@ void RFAMP_hal::init()
     txrx_disable_clr_bits |= SET_BIT(GPIO_PIN_TX_ENABLE);
     txrx_disable_clr_bits |= SET_BIT(GPIO_PIN_RX_ENABLE_2);
     txrx_disable_clr_bits |= SET_BIT(GPIO_PIN_TX_ENABLE_2);
+    txrx_disable_clr_bits |= SET_BIT(GPIO_PIN_BACKPACK_BOOT);
 
     tx1_enable_set_bits = 0;
     tx1_enable_clr_bits = 0;
     tx1_enable_set_bits |= SET_BIT(GPIO_PIN_PA_ENABLE);
     tx1_enable_set_bits |= SET_BIT(GPIO_PIN_TX_ENABLE);
+    tx1_enable_set_bits |= SET_BIT(GPIO_PIN_BACKPACK_BOOT);
     tx1_enable_clr_bits |= SET_BIT(GPIO_PIN_RX_ENABLE);
     tx1_enable_clr_bits |= SET_BIT(GPIO_PIN_RX_ENABLE_2);
 
@@ -35,6 +40,7 @@ void RFAMP_hal::init()
     tx2_enable_clr_bits = 0;
     tx2_enable_set_bits |= SET_BIT(GPIO_PIN_PA_ENABLE);
     tx2_enable_set_bits |= SET_BIT(GPIO_PIN_TX_ENABLE_2);
+    tx2_enable_set_bits |= SET_BIT(GPIO_PIN_BACKPACK_BOOT);
     tx2_enable_clr_bits |= SET_BIT(GPIO_PIN_RX_ENABLE_2);
     tx2_enable_clr_bits |= SET_BIT(GPIO_PIN_RX_ENABLE);
 
@@ -50,6 +56,7 @@ void RFAMP_hal::init()
     rx_enable_set_bits |= SET_BIT(GPIO_PIN_RX_ENABLE_2);
     rx_enable_clr_bits |= SET_BIT(GPIO_PIN_TX_ENABLE);
     rx_enable_clr_bits |= SET_BIT(GPIO_PIN_TX_ENABLE_2);
+    rx_enable_clr_bits |= SET_BIT(GPIO_PIN_BACKPACK_BOOT);
 #else
     rx_enabled = false;
     tx_enabled = false;
@@ -88,6 +95,13 @@ void RFAMP_hal::init()
         DBGLN("Use RX_2 pin: %d", GPIO_PIN_RX_ENABLE_2);
         pinMode(GPIO_PIN_RX_ENABLE_2, OUTPUT);
         digitalWrite(GPIO_PIN_RX_ENABLE_2, LOW);
+    }
+
+    if (GPIO_PIN_BACKPACK_BOOT != UNDEF_PIN)
+    {
+        DBGLN("Use Backpack TX gate pin: %d", GPIO_PIN_BACKPACK_BOOT);
+        pinMode(GPIO_PIN_BACKPACK_BOOT, OUTPUT);
+        digitalWrite(GPIO_PIN_BACKPACK_BOOT, LOW);
     }
 }
 
@@ -156,6 +170,10 @@ void ICACHE_RAM_ATTR RFAMP_hal::TXenable(SX12XX_Radio_Number_t radioNumber)
         {
             digitalWrite(GPIO_PIN_TX_ENABLE, HIGH);
         }
+        if (GPIO_PIN_BACKPACK_BOOT != UNDEF_PIN)
+        {
+            digitalWrite(GPIO_PIN_BACKPACK_BOOT, HIGH);
+        }
         tx_enabled = true;
     }
 #endif
@@ -178,9 +196,12 @@ void ICACHE_RAM_ATTR RFAMP_hal::RXenable()
         if (!tx_enabled && GPIO_PIN_PA_ENABLE != UNDEF_PIN)
             digitalWrite(GPIO_PIN_PA_ENABLE, HIGH);
 
-        if (tx_enabled && GPIO_PIN_TX_ENABLE != UNDEF_PIN)
+        if (tx_enabled)
         {
-            digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+            if (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
+                digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+            if (GPIO_PIN_BACKPACK_BOOT != UNDEF_PIN)
+                digitalWrite(GPIO_PIN_BACKPACK_BOOT, LOW);
             tx_enabled = false;
         }
 
@@ -218,6 +239,10 @@ void ICACHE_RAM_ATTR RFAMP_hal::TXRXdisable()
         if (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
         {
             digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+        }
+        if (GPIO_PIN_BACKPACK_BOOT != UNDEF_PIN)
+        {
+            digitalWrite(GPIO_PIN_BACKPACK_BOOT, LOW);
         }
         tx_enabled = false;
     }

@@ -1287,7 +1287,7 @@ static void setupSerial()
     else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
         mavlinkSerialOutput = true;
-        serialBaud = 460800;
+        serialBaud = 115200;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
     {
