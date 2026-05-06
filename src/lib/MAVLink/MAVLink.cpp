@@ -283,17 +283,13 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
             case MAVLINK_MSG_ID_SCALED_PRESSURE: {
                 mavlink_scaled_pressure_t scaled_pressure;
                 mavlink_msg_scaled_pressure_decode(&msg, &scaled_pressure);
-                // Single-value temperature frame; the global crsf_sensor_temp_t reserves space for 20 samples
-                struct PACKED crsf_temp_single_t {
-                    uint8_t source_id;
-                    int16_t temperature;
-                };
-                CRSF_MK_FRAME_T(crsf_temp_single_t)
+                // CRSF temp is variable-length: crsf_sensor_temp_t reserves 20 samples but we send only one
+                CRSF_MK_FRAME_T(crsf_sensor_temp_t)
                 crsftemp = {0};
                 crsftemp.p.source_id = 1; // 1 = Ambient (per CRSF temp source_id convention)
-                // cdegC -> ddegC
-                crsftemp.p.temperature = htobe16((int16_t)(scaled_pressure.temperature / 10));
-                crsfRouter.SetHeaderAndCrc((crsf_header_t *)&crsftemp, CRSF_FRAMETYPE_TEMP, CRSF_FRAME_SIZE(sizeof(crsf_temp_single_t)));
+                crsftemp.p.temperature[0] = htobe16(scaled_pressure.temperature / 10); // cdegC -> ddegC
+                constexpr size_t payloadLen = sizeof(crsftemp.p.source_id) + sizeof(crsftemp.p.temperature[0]);
+                crsfRouter.SetHeaderAndCrc((crsf_header_t *)&crsftemp, CRSF_FRAMETYPE_TEMP, CRSF_FRAME_SIZE(payloadLen));
                 crsfRouter.deliverMessageTo(destination, &crsftemp.h);
                 break;
             }
