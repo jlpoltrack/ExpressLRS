@@ -55,6 +55,13 @@ static selectionParameter luaSBUSFailsafeMode = {
     STR_EMPTYSPACE
 };
 
+static selectionParameter luaMavlinkBaud = {
+    {"MAVLink Baud", CRSF_TEXT_SELECTION},
+    0, // value
+    "460800;115200",
+    STR_EMPTYSPACE
+};
+
 static int8Parameter luaTargetSysId = {
   {"Target SysID", CRSF_UINT8},
   {
@@ -521,6 +528,15 @@ void RXEndpoint::registerParameters()
     config.SetFailsafeMode((eFailsafeMode)arg);
   });
 
+  registerParameter(&luaMavlinkBaud, [](propertiesCommon* item, uint8_t arg){
+    config.SetMavlinkBaud(arg);
+    if (config.IsModified()) {
+      deferExecutionMillis(100, [](){
+        reconfigureSerial();
+      });
+    }
+  });
+
   registerParameter(&luaTargetSysId, [](propertiesCommon* item, uint8_t arg){
     config.SetTargetSysId((uint8_t)arg);
   });
@@ -641,13 +657,16 @@ void RXEndpoint::updateParameters()
   {
     setUint8Value(&luaSourceSysId, config.GetSourceSysId() == 0 ? 255 : config.GetSourceSysId());  //display Source sysID if 0 display 255 to mimic logic in SerialMavlink.cpp
     setUint8Value(&luaTargetSysId, config.GetTargetSysId() == 0 ? 1 : config.GetTargetSysId());  //display Target sysID if 0 display 1 to mimic logic in SerialMavlink.cpp
+    setTextSelectionValue(&luaMavlinkBaud, config.GetMavlinkBaudSetting());
     LUA_FIELD_SHOW(luaSourceSysId)
     LUA_FIELD_SHOW(luaTargetSysId)
+    LUA_FIELD_SHOW(luaMavlinkBaud)
   }
   else
   {
     LUA_FIELD_HIDE(luaSourceSysId)
     LUA_FIELD_HIDE(luaTargetSysId)
+    LUA_FIELD_HIDE(luaMavlinkBaud)
   }
 }
 #endif

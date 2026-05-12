@@ -259,7 +259,8 @@ typedef struct __attribute__((packed)) {
     uint8_t     modelId;
     uint8_t     serialProtocol:4,
                 failsafeMode:2,
-                unused:2;
+                mavlinkBaud:1,      // 0=460800 (default), 1=115200
+                unused:1;
     rx_config_pwm_t pwmChannels[PWM_MAX_CHANNELS] __attribute__((aligned(4)));
     uint8_t     teamraceChannel:4,
                 teamracePosition:3,
@@ -293,6 +294,8 @@ public:
     bool GetForceTlmOff() const { return m_config.forceTlmOff; }
     uint8_t GetRateInitialIdx() const { return m_config.rateInitialIdx; }
     eSerialProtocol GetSerialProtocol() const { return (eSerialProtocol)m_config.serialProtocol; }
+    uint32_t GetMavlinkBaud() const { return m_config.mavlinkBaud ? 115200 : 460800; }
+    uint8_t GetMavlinkBaudSetting() const { return m_config.mavlinkBaud; }
 #if defined(PLATFORM_ESP32)
     eSerial1Protocol GetSerial1Protocol() const { return (eSerial1Protocol)m_config.serial1Protocol; }
 #endif
@@ -317,6 +320,7 @@ public:
     void SetForceTlmOff(bool forceTlmOff);
     void SetRateInitialIdx(uint8_t rateInitialIdx);
     void SetSerialProtocol(eSerialProtocol serialProtocol);
+    void SetMavlinkBaud(uint8_t mavlinkBaud);
 #if defined(PLATFORM_ESP32)
     void SetSerial1Protocol(eSerial1Protocol serial1Protocol);
 #endif

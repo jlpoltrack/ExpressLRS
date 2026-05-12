@@ -378,6 +378,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
       cfg["serial1-protocol"] = config.GetSerial1Protocol();
     }
     #endif
+    cfg["mavlink-baud"] = config.GetMavlinkBaudSetting();
     cfg["sbus-failsafe"] = config.GetFailsafeMode();
     cfg["modelid"] = config.GetModelId();
     cfg["force-tlm"] = config.GetForceTlmOff();
@@ -568,6 +569,9 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
   uint8_t protocol1 = json["serial1-protocol"] | 0;
   config.SetSerial1Protocol((eSerial1Protocol)protocol1);
 #endif
+
+  uint8_t mavlinkBaud = json["mavlink-baud"] | 0;
+  config.SetMavlinkBaud(mavlinkBaud);
 
   uint8_t failsafe = json["sbus-failsafe"] | 0;
   config.SetFailsafeMode((eFailsafeMode)failsafe);

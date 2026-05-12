@@ -1387,6 +1387,15 @@ void RxConfig::SetSerialProtocol(eSerialProtocol serialProtocol)
     }
 }
 
+void RxConfig::SetMavlinkBaud(uint8_t mavlinkBaud)
+{
+    if (m_config.mavlinkBaud != mavlinkBaud)
+    {
+        m_config.mavlinkBaud = mavlinkBaud;
+        m_modified = EVENT_CONFIG_SERIAL_CHANGE;
+    }
+}
+
 #if defined(PLATFORM_ESP32)
 void RxConfig::SetSerial1Protocol(eSerial1Protocol serialProtocol)
 {
