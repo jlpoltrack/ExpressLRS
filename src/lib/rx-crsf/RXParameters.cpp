@@ -528,6 +528,13 @@ void RXEndpoint::registerParameters()
     config.SetFailsafeMode((eFailsafeMode)arg);
   });
 
+  registerParameter(&luaTargetSysId, [](propertiesCommon* item, uint8_t arg){
+    config.SetTargetSysId((uint8_t)arg);
+  });
+  registerParameter(&luaSourceSysId, [](propertiesCommon* item, uint8_t arg){
+    config.SetSourceSysId((uint8_t)arg);
+  });
+
   registerParameter(&luaMavlinkBaud, [](propertiesCommon* item, uint8_t arg){
     config.SetMavlinkBaud(arg);
     if (config.IsModified()) {
@@ -535,13 +542,6 @@ void RXEndpoint::registerParameters()
         reconfigureSerial();
       });
     }
-  });
-
-  registerParameter(&luaTargetSysId, [](propertiesCommon* item, uint8_t arg){
-    config.SetTargetSysId((uint8_t)arg);
-  });
-  registerParameter(&luaSourceSysId, [](propertiesCommon* item, uint8_t arg){
-    config.SetSourceSysId((uint8_t)arg);
   });
 
   if (GPIO_PIN_ANT_CTRL != UNDEF_PIN)
