@@ -1396,6 +1396,15 @@ void RxConfig::SetMavlinkBaud(uint8_t mavlinkBaud)
     }
 }
 
+void RxConfig::SetMavlinkDisableRC(bool mavlinkDisableRC)
+{
+    if (m_config.mavlinkDisableRC != mavlinkDisableRC)
+    {
+        m_config.mavlinkDisableRC = mavlinkDisableRC;
+        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+    }
+}
+
 #if defined(PLATFORM_ESP32)
 void RxConfig::SetSerial1Protocol(eSerial1Protocol serialProtocol)
 {

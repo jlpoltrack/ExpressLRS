@@ -379,6 +379,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
     }
     #endif
     cfg["mavlink-baud"] = config.GetMavlinkBaudSetting();
+    cfg["mavlink-disable-rc"] = config.GetMavlinkDisableRC();
     cfg["sbus-failsafe"] = config.GetFailsafeMode();
     cfg["modelid"] = config.GetModelId();
     cfg["force-tlm"] = config.GetForceTlmOff();
@@ -572,6 +573,9 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
 
   uint8_t mavlinkBaud = json["mavlink-baud"] | 0;
   config.SetMavlinkBaud(mavlinkBaud);
+
+  bool mavlinkDisableRC = json["mavlink-disable-rc"] | false;
+  config.SetMavlinkDisableRC(mavlinkDisableRC);
 
   uint8_t failsafe = json["sbus-failsafe"] | 0;
   config.SetFailsafeMode((eFailsafeMode)failsafe);

@@ -30,6 +30,9 @@ SerialMavlink::SerialMavlink(Stream &out, Stream &in):
 
 uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
+    if (config.GetMavlinkDisableRC()) {
+        return MAVLINK_RC_PACKET_INTERVAL;
+    }
     if (!frameAvailable) {
         return DURATION_IMMEDIATELY;
     }

@@ -14,6 +14,7 @@ class SerialPanel extends LitElement {
     @state() accessor serial2Protocol
     @state() accessor baudRate
     @state() accessor mavlinkBaud
+    @state() accessor mavlinkDisableRC
     @state() accessor sbusFailsafe
     @state() accessor isAirport
     @state() accessor djiArmed
@@ -24,6 +25,7 @@ class SerialPanel extends LitElement {
         this.serial2Protocol = elrsState.config['serial1-protocol']
         this.baudRate = elrsState.options['rcvr-uart-baud']
         this.mavlinkBaud = elrsState.config['mavlink-baud'] || 0
+        this.mavlinkDisableRC = elrsState.config['mavlink-disable-rc'] ? 1 : 0
         this.sbusFailsafe = elrsState.config['sbus-failsafe']
         this.djiArmed = elrsState.options['dji-permanently-armed']
         this._saveSerial = this._saveSerial.bind(this)
@@ -90,6 +92,12 @@ class SerialPanel extends LitElement {
                             ${_renderOptions(['460800', '115200'], this.mavlinkBaud)}
                         </select>
                         <label>MAVLink Baud</label>
+                    </div>
+                    <div class="mui-select">
+                        <select name='mavlink-disable-rc' @change=${(e) => {this.mavlinkDisableRC = Number(e.target.value)}}>
+                            ${_renderOptions(['Enabled', 'Disabled'], this.mavlinkDisableRC)}
+                        </select>
+                        <label>RC Channels</label>
                     </div>
                     ` : ''}
                     ${this._displayPortSelected() ? html`
@@ -182,7 +190,8 @@ class SerialPanel extends LitElement {
         return (!this.isAirport && this.serial1Protocol !== elrsState.config['serial-protocol']) ||
             this.serial2Protocol !== elrsState.config['serial1-protocol'] ||
             this.sbusFailsafe !== elrsState.config['sbus-failsafe'] ||
-            this.mavlinkBaud !== (elrsState.config['mavlink-baud'] || 0)
+            this.mavlinkBaud !== (elrsState.config['mavlink-baud'] || 0) ||
+            this.mavlinkDisableRC !== (elrsState.config['mavlink-disable-rc'] ? 1 : 0)
     }
     _optionsChanged() {
         return this.isAirport !== elrsState.options['is-airport'] ||
@@ -206,7 +215,8 @@ class SerialPanel extends LitElement {
                     'serial-protocol': this.isAirport ? 0 : this.serial1Protocol,
                     'serial1-protocol': this.serial2Protocol,
                     'sbus-failsafe': this.sbusFailsafe,
-                    'mavlink-baud': this.mavlinkBaud
+                    'mavlink-baud': this.mavlinkBaud,
+                    'mavlink-disable-rc': this.mavlinkDisableRC
                 }
             },
             () => {this.requestUpdate()}
