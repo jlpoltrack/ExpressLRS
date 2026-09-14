@@ -11,7 +11,7 @@
 #define NO_SERIALIO_INTERVAL 1000
 
 extern SerialIO *serialIO;
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 extern SerialIO *serial1IO;
 #endif
 
@@ -32,14 +32,14 @@ typedef struct devserial_ctx_s {
 } devserial_ctx_t;
 
 static devserial_ctx_t serial0;
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 static devserial_ctx_t serial1;
 #endif
 
 void ICACHE_RAM_ATTR crsfRCFrameAvailable()
 {
     serial0.frameAvailable = true;
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
     serial1.frameAvailable = true;
 #endif
 }
@@ -47,7 +47,7 @@ void ICACHE_RAM_ATTR crsfRCFrameAvailable()
 void ICACHE_RAM_ATTR crsfRCFrameMissed()
 {
     serial0.frameMissed = true;
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
     serial1.frameMissed = true;
 #endif
 }
@@ -56,7 +56,7 @@ static int start()
 {
     serial0.io = &serialIO;
     serial0.lastConnectionState = disconnected;
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
     serial1.io = &serial1IO;
     serial1.lastConnectionState = disconnected;
 #endif
@@ -85,7 +85,7 @@ static int event0()
     return event(&serial0);
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 static int event1()
 {
     return event(&serial1);
@@ -252,7 +252,7 @@ void sendImmediateRC()
 
         (*(serial0.io))->sendRCFrame(sendChannels, missed, ChannelData);
     }
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
     if (*(serial1.io) != nullptr && (*(serial1.io))->sendImmediateRC() && connectionState != serialUpdate)
     {
         const bool missed = serial1.frameMissed;
@@ -274,7 +274,7 @@ void handleSerialIO()
         (*(serial0.io))->processSerialInput();
         (*(serial0.io))->sendQueuedData((*(serial0.io))->getMaxSerialWriteSize());
     }
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
     if (*(serial1.io) != nullptr)
     {
         (*(serial1.io))->processSerialInput();
@@ -288,7 +288,7 @@ static int timeout0()
   return timeout(&serial0);
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 static int timeout1()
 {
   return timeout(&serial1);
@@ -303,7 +303,7 @@ device_t Serial0_device = {
     .subscribe = EVENT_CONNECTION_CHANGED | EVENT_CONFIG_MODEL_CHANGED
 };
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 device_t Serial1_device = {
     .initialize = nullptr,
     .start = start,

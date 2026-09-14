@@ -1289,7 +1289,7 @@ RxConfig::SetDefaults(bool commit)
             {
                 mode = somSerial;
             }
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
             else if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SERIAL1_RX)
             {
                 mode = somSerial1RX;
@@ -1388,7 +1388,7 @@ void RxConfig::SetSerialProtocol(eSerialProtocol serialProtocol)
     }
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 void RxConfig::SetSerial1Protocol(eSerial1Protocol serialProtocol)
 {
     if (m_config.serial1Protocol != serialProtocol)

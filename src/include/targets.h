@@ -25,6 +25,11 @@
 #include "native.h"
 #endif
 
+#if defined(PLATFORM_RP2350)
+// Code runs from XIP flash, RAM placement gave no measurable benefit
+#define IRAM_ATTR
+#endif
+
 /*
  * Features
  * define features based on pins before defining pins as UNDEF_PIN
@@ -73,6 +78,9 @@ extern bool pwmSerialDefined;
 
 #if defined(PLATFORM_ESP32)
 #include <soc/uart_pins.h>
+#elif defined(PLATFORM_RP2350)
+#define U0RXD_GPIO_NUM (1)
+#define U0TXD_GPIO_NUM (0)
 #endif
 #if !defined(U0RXD_GPIO_NUM)
 #define U0RXD_GPIO_NUM (3)

@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266) || defined(PLATFORM_RP2350)
 
 #include "common.h"
 

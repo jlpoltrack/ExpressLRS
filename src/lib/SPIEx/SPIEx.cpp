@@ -81,8 +81,58 @@ void ICACHE_RAM_ATTR SPIExClass::_transfer(uint8_t cs_mask, uint8_t *data, uint3
             dataPtr[i] = fifoPtr[i];
         }
     }
+#elif defined(PLATFORM_RP2350)
+    const uint64_t pins = ((cs_mask & 1) ? _csMask[0] : 0) | ((cs_mask & 2) ? _csMask[1] : 0);
+    gpio_clr_mask64(pins);
+
+    if (reading)
+        spi_write_read_blocking(_spi, data, data, size);
+    else
+        spi_write_blocking(_spi, data, size);
+
+    gpio_set_mask64(pins);
 #endif
 }
+
+#if defined(PLATFORM_RP2350)
+void SPIExClass::begin(int sck, int miso, int mosi, int nss, int nss2, uint32_t frequency)
+{
+    // GPIO 0-7 and 16-23 route to spi0, 8-15 and 24-31 to spi1
+    _spi = ((sck / 8) % 2) ? spi1 : spi0;
+    spi_init(_spi, frequency);
+    spi_set_format(_spi, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    gpio_set_function(sck, GPIO_FUNC_SPI);
+    gpio_set_function(mosi, GPIO_FUNC_SPI);
+    gpio_set_function(miso, GPIO_FUNC_SPI);
+    gpio_pull_up(miso);
+
+    const int cs[2] = {nss, nss2};
+    for (int i = 0; i < 2; i++)
+    {
+        _csMask[i] = 0;
+        if (cs[i] == UNDEF_PIN)
+            continue;
+        gpio_init(cs[i]);
+        gpio_set_dir(cs[i], GPIO_OUT);
+        gpio_put(cs[i], true);
+        _csMask[i] = 1ULL << cs[i];
+    }
+}
+
+void SPIExClass::end()
+{
+    if (_spi)
+        spi_deinit(_spi);
+}
+
+void SPIExClass::transferBytes(const uint8_t *out, uint8_t *in, uint32_t size)
+{
+    if (in)
+        spi_write_read_blocking(_spi, out, in, size);
+    else
+        spi_write_blocking(_spi, out, size);
+}
+#endif
 
 #if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3)
 SPIExClass SPIEx(FSPI);

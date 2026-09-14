@@ -10,6 +10,20 @@
  *    continue to do work while the SPI module is pumping the data from the FIFO to the external
  *    device.
  */
+#if defined(PLATFORM_RP2350)
+#include <hardware/spi.h>
+
+class SPIExClass
+{
+public:
+    // Selects spi0/spi1 from the SCK pin, CS pins are driven manually
+    void begin(int sck, int miso, int mosi, int nss, int nss2, uint32_t frequency);
+    void end();
+    // CS is always software controlled on RP2350
+    void setHwCs(bool) {}
+    // Raw transfer without CS handling, out may be read into in-place when in is null
+    void transferBytes(const uint8_t *out, uint8_t *in, uint32_t size);
+#else
 class SPIExClass : public SPIClass
 {
 public:
@@ -17,6 +31,7 @@ public:
     explicit SPIExClass(uint8_t spi_bus=HSPI) : SPIClass(spi_bus) {}
 #else
     explicit SPIExClass() : SPIClass() {}
+#endif
 #endif
 
     /**
@@ -49,6 +64,11 @@ public:
 
 private:
     void _transfer(uint8_t cs_mask, uint8_t *data, uint32_t size, bool reading);
+#if defined(PLATFORM_RP2350)
+    spi_inst_t *_spi = nullptr;
+    // GPIO mask per radio CS, 64-bit to cover RP2350B pins above 31
+    uint64_t _csMask[2] = {0, 0};
+#endif
 };
 
 extern SPIExClass SPIEx;

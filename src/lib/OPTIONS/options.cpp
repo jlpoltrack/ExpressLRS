@@ -33,6 +33,8 @@ firmware_options_t firmwareOptions;
 #if defined(PLATFORM_ESP32)
 #include <esp_partition.h>
 #include "esp_ota_ops.h"
+#elif defined(PLATFORM_RP2350)
+extern char __flash_binary_end;
 #endif
 
 char product_name[ELRSOPTS_PRODUCTNAME_SIZE+1];
@@ -52,7 +54,7 @@ String& getOptions()
 
 void setOptions(String &options)
 {
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     builtinOptions.concat(options);
 }
 
@@ -90,7 +92,7 @@ void saveOptions(Stream &stream, bool customised)
     doc["flash-discriminator"] = firmwareOptions.flash_discriminator;
 
     serializeJson(doc, stream);
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     serializeJson(doc, builtinOptions);
 }
 
@@ -203,7 +205,7 @@ static void options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
     firmwareOptions.domain = doc["domain"] | 0;
     firmwareOptions.flash_discriminator = doc["flash-discriminator"] | 0U;
 
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     saveOptions(builtinOptions, doc["customised"] | false);
 }
 
@@ -266,13 +268,19 @@ bool options_init()
     {
         baseAddr = runningPart->address;
     }
+    const uint32_t sketchSize = ESP.getSketchSize();
+#elif defined(PLATFORM_RP2350)
+    LittleFS.begin();
+    // Options are appended directly after the XIP-mapped binary
+    const uint32_t sketchSize = (uint32_t)&__flash_binary_end;
 #else
     LittleFS.begin();
     // ESP8266 sketch baseAddr is always 0
+    const uint32_t sketchSize = ESP.getSketchSize();
 #endif
 
     EspFlashStream strmFlash;
-    strmFlash.setBaseAddress(baseAddr + ESP.getSketchSize());
+    strmFlash.setBaseAddress(baseAddr + sketchSize);
 
     // Product / Device Name
     options_LoadProductAndDeviceName(strmFlash);
@@ -281,7 +289,7 @@ bool options_init()
     // hardware.json
     bool hasHardware = hardware_init(strmFlash);
     // flash location of logo image in RGB565 format
-    logo_image = baseAddr + ESP.getSketchSize() +
+    logo_image = baseAddr + sketchSize +
         ELRSOPTS_PRODUCTNAME_SIZE +
         ELRSOPTS_DEVICENAME_SIZE +
         ELRSOPTS_OPTIONS_SIZE +

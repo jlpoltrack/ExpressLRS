@@ -63,7 +63,7 @@ public:
     {
     #if defined(PLATFORM_ESP32)
         portENTER_CRITICAL(&mux);
-    #elif defined(PLATFORM_ESP8266)
+    #elif defined(PLATFORM_ESP8266) || defined(PLATFORM_RP2350)
         noInterrupts();
     #else
     #endif
@@ -76,7 +76,7 @@ public:
     {
     #if defined(PLATFORM_ESP32)
         portEXIT_CRITICAL(&mux);
-    #elif defined(PLATFORM_ESP8266)
+    #elif defined(PLATFORM_ESP8266) || defined(PLATFORM_RP2350)
         interrupts();
     #else
     #endif

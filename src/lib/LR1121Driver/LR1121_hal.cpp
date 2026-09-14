@@ -60,6 +60,8 @@ void LR1121Hal::init()
         spiAttachSS(SPIEx.bus(), 1, GPIO_PIN_NSS_2);
     }
     spiEnableSSPins(SPIEx.bus(), SX12XX_Radio_All);
+#elif defined(PLATFORM_RP2350)
+    SPIEx.begin(GPIO_PIN_SCK, GPIO_PIN_MISO, GPIO_PIN_MOSI, GPIO_PIN_NSS, GPIO_PIN_NSS_2, 16000000);
 #elif defined(PLATFORM_ESP8266)
     DBGLN("PLATFORM_ESP8266");
     SPIEx.begin();

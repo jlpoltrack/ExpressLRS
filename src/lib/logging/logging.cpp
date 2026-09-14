@@ -70,6 +70,9 @@ void debugCreateInitLogger()
   #if defined(PLATFORM_ESP32)
   BackpackOrLogStrm = new HardwareSerial(1);
   ((HardwareSerial *)BackpackOrLogStrm)->begin(460800, SERIAL_8N1, 3, 1);
+  #elif defined(PLATFORM_RP2350)
+  Serial1.begin(460800);
+  BackpackOrLogStrm = &Serial1;
   #else
   BackpackOrLogStrm = new HardwareSerial(0);
   ((HardwareSerial *)BackpackOrLogStrm)->begin(460800, SERIAL_8N1);
@@ -78,8 +81,12 @@ void debugCreateInitLogger()
 
 void debugFreeInitLogger()
 {
+#if defined(PLATFORM_RP2350)
+  Serial1.end();
+#else
   ((HardwareSerial *)BackpackOrLogStrm)->end();
   delete (HardwareSerial *)BackpackOrLogStrm;
+#endif
   BackpackOrLogStrm = nullptr;
 }
 #endif

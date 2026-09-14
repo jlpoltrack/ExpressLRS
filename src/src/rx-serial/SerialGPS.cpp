@@ -158,7 +158,13 @@ uint32_t SerialGPS::currentBaud() const
 
 void SerialGPS::setBaud(uint32_t baud)
 {
+#if defined(PLATFORM_RP2350)
+    // Arduino-Pico has no updateBaudRate; restarting the UART keeps its pin and inversion settings
+    _port->end();
+    _port->begin(baud);
+#else
     _port->updateBaudRate(baud);
+#endif
     // Whatever was mid-flight through the old divisor is garbage
     while (_port->available())
         _port->read();

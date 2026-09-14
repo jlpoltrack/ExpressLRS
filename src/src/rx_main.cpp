@@ -75,8 +75,10 @@
 
 device_affinity_t ui_devices[] = {
   {&Serial0_device, 1},
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
   {&Serial1_device, 1},
+#endif
+#if defined(PLATFORM_ESP32)
   {&SerialUpdate_device, 1},
 #endif
   {&LED_device, 0},
@@ -114,10 +116,20 @@ bool pwmSerialDefined = false;
 uint32_t serialBaud;
 
 /* SERIAL_PROTOCOL_TX is used by CRSF output */
+#if defined(PLATFORM_RP2350)
+// Serial is USB CDC on RP2350, Serial1 is hardware UART0
+#define SERIAL_PROTOCOL_TX Serial1
+#else
 #define SERIAL_PROTOCOL_TX Serial
+#endif
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
+    #if defined(PLATFORM_RP2350)
+    // Serial2 is hardware UART1
+    #define SERIAL1_PROTOCOL_TX Serial2
+    #else
     #define SERIAL1_PROTOCOL_TX Serial1
+    #endif
 
     // SBUS driver needs to distinguish stream for SBUS/DJI protocol
     const Stream *serial_protocol_tx = &(SERIAL_PROTOCOL_TX);
@@ -128,8 +140,13 @@ uint32_t serialBaud;
 
 SerialIO *serialIO = nullptr;
 
+#if defined(PLATFORM_RP2350)
+#define SERIAL_PROTOCOL_RX Serial1
+#define SERIAL1_PROTOCOL_RX Serial2
+#else
 #define SERIAL_PROTOCOL_RX Serial
 #define SERIAL1_PROTOCOL_RX Serial1
+#endif
 
 StubbornSender DataDlSender;
 uint8_t DataDlBuffer[CRSF_MAX_PACKET_LEN];
@@ -1363,6 +1380,27 @@ static void setupSerial()
     // ARDUINO_CORE_INVERT_FIX PT2 end
 
     Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
+#elif defined(PLATFORM_RP2350)
+    uint16_t serialConfig = SERIAL_8N1;
+
+    if(sbusSerialOutput)
+    {
+        serialConfig = SERIAL_8E2;
+    }
+    else if(hottTlmSerial)
+    {
+        serialConfig = SERIAL_8N2;
+    }
+
+    // Pins must be UART0-capable, TX-only outputs (SBUS/SUMD) may leave RX undefined
+    if (GPIO_PIN_RCSIGNAL_TX != UNDEF_PIN)
+        SERIAL_PROTOCOL_TX.setTX(GPIO_PIN_RCSIGNAL_TX);
+    if (GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN)
+        SERIAL_PROTOCOL_TX.setRX(GPIO_PIN_RCSIGNAL_RX);
+    SERIAL_PROTOCOL_TX.setInvertTX(invert);
+    SERIAL_PROTOCOL_TX.setInvertRX(invert);
+    SERIAL_PROTOCOL_TX.setFIFOSize(256);
+    SERIAL_PROTOCOL_TX.begin(serialBaud, serialConfig);
 #endif
 
     if (firmwareOptions.is_airport)
@@ -1412,15 +1450,39 @@ static void setupSerial()
 #endif
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2350)
 static void serial1Shutdown()
 {
     if(serial1IO != nullptr)
     {
-        Serial1.end();
+        SERIAL1_PROTOCOL_TX.end();
         delete serial1IO;
         serial1IO = nullptr;
     }
+}
+
+#if defined(PLATFORM_RP2350)
+static pin_size_t serial1Pin(int8_t pin, uint32_t validMask)
+{
+    // UART1-capable pins only, anything else would panic inside setRX/setTX
+    return (pin >= 0 && pin < 32 && (validMask & (1UL << pin))) ? (pin_size_t)pin : UART_PIN_NOT_DEFINED;
+}
+#endif
+
+static void serial1Begin(unsigned long baud, uint16_t serialConfig, int8_t rxPin, int8_t txPin, bool invert)
+{
+#if defined(PLATFORM_RP2350)
+    constexpr uint32_t UART1_TX_PINS = (1UL << 4) | (1UL << 6) | (1UL << 8) | (1UL << 10) | (1UL << 20) | (1UL << 22) | (1UL << 24) | (1UL << 26);
+    constexpr uint32_t UART1_RX_PINS = UART1_TX_PINS << 1;
+    SERIAL1_PROTOCOL_TX.setRX(serial1Pin(rxPin, UART1_RX_PINS));
+    SERIAL1_PROTOCOL_TX.setTX(serial1Pin(txPin, UART1_TX_PINS));
+    SERIAL1_PROTOCOL_TX.setInvertTX(invert);
+    SERIAL1_PROTOCOL_TX.setInvertRX(invert);
+    SERIAL1_PROTOCOL_TX.setFIFOSize(256);
+    SERIAL1_PROTOCOL_TX.begin(baud, serialConfig);
+#else
+    Serial1.begin(baud, serialConfig, rxPin, txPin, invert);
+#endif
 }
 
 static void setupSerial1()
@@ -1455,40 +1517,40 @@ static void setupSerial1()
         case PROTOCOL_SERIAL1_OFF:
             break;
         case PROTOCOL_SERIAL1_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
+            serial1Begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
             serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_INVERTED_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
+            serial1Begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
             serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_SBUS:
         case PROTOCOL_SERIAL1_DJI_RS_PRO:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
+            serial1Begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
             serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_INVERTED_SBUS:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_SUMD:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSUMD(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_HOTT_TLM:
-            Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
+            serial1Begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
             serial1IO = new SerialHoTT_TLM(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_TRAMP:
-            Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialTramp(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_SMARTAUDIO:
-            Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSmartAudio(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialDisplayport(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_GPS:
@@ -1496,7 +1558,7 @@ static void setupSerial1()
             // shared with RX) the GPS can be read but not configured
             if (serial1RXpin != UNDEF_PIN)
             {
-                Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
+                serial1Begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
                 serial1IO = new SerialGPS(SERIAL1_PROTOCOL_TX, serial1TXpin == serial1RXpin ? UNDEF_PIN : serial1TXpin);
             }
             break;
@@ -1833,7 +1895,11 @@ void EnterBindingModeSafely()
         // Force 3-plug binding mode
         config.SetPowerOnCounter(3);
         config.Commit();
+#if defined(PLATFORM_RP2350)
+        rp2040.reboot();
+#else
         ESP.restart();
+#endif
         // Unreachable
     }
 
@@ -1992,7 +2058,11 @@ void resetConfigAndReboot()
     LittleFS.begin();
     options_SetTrueDefaults();
 
+#if defined(PLATFORM_RP2350)
+    rp2040.reboot();
+#else
     ESP.restart();
+#endif
 }
 
 void setup()
@@ -2003,12 +2073,14 @@ void setup()
         // if it decides to log something
         BackpackOrLogStrm = new NullStream();
 
+#if !defined(PLATFORM_RP2350)
         // Register the WiFi with the framework
         static device_affinity_t wifi_device[] = {
             {&WIFI_device, 1}
         };
         devicesRegister(wifi_device, ARRAY_SIZE(wifi_device));
         devicesInit();
+#endif
 
         setConnectionState(hardwareUndefined);
     }
@@ -2030,6 +2102,11 @@ void setup()
         #if defined(DEBUG_LOG)
         Serial.begin(serialBaud);
         BackpackOrLogStrm = &Serial;
+        #if defined(PLATFORM_RP2350)
+        // Serial is USB CDC, give the host time to open the port so boot logs are not lost
+        for (int i = 0; i < 300 && !Serial; i++)
+            delay(10);
+        #endif
         #else
         BackpackOrLogStrm = new NullStream();
         #endif

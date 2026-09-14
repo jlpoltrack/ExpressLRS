@@ -3,6 +3,8 @@
 
 #if defined(PLATFORM_ESP8266)
 #include "ESPAsyncTCP.h"
+#elif defined(PLATFORM_RP2350)
+#include "RPAsyncTCP.h"
 #else
 #include "AsyncTCP.h"
 #endif

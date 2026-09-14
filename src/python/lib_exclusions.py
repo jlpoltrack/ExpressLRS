@@ -26,6 +26,7 @@ LIBRARY_EXCLUSIONS = {
     "RX": {
         "*": ("ADC","Backpack","BLE","GSENSOR","Handset","POWER_DETECT","SCREEN","tx-crsf","VTX"),
         "esp8285": ("MSPVTX","VTXSPI"),
+        "rp2350": ("VTXSPI","THERMAL","SerialUpdate"),
     }
 }
 

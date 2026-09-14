@@ -195,8 +195,8 @@ void POWERMGNT::setPower(PowerLevels_e Power)
         {
             Radio.SetOutputPower(SAFE_GET_POWER_VALUE(POWER_OUTPUT_VALUES2, powerIdx));
         }
-        #if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3) || defined(PLATFORM_ESP8266)
-        ERRLN("ESP32-S3/C3 and ESP8285 MCUs do not have a DAC");
+        #if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3) || defined(PLATFORM_ESP8266) || defined(PLATFORM_RP2350)
+        ERRLN("ESP32-S3/C3, ESP8285 and RP2350 MCUs do not have a DAC");
         #else
         dacWrite(GPIO_PIN_RFamp_APC2, SAFE_GET_POWER_VALUE(POWER_OUTPUT_VALUES, powerIdx));
         #endif
