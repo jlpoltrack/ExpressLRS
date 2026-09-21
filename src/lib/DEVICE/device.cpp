@@ -22,6 +22,14 @@
 #if defined(PLATFORM_ESP32)
 #include <soc/soc_caps.h>
 #define MULTICORE (SOC_CPU_CORES_NUM > 1)
+#elif defined(PLATFORM_RP2)
+#include <hardware/sync.h>
+// All devices run on the loop core; the alternate-core ones sit idle once linked.
+// Defining these parks core 1 in WFI instead of the bootrom's FIFO poll loop, which
+// drops core 0's hwTimer alarm latency from 6.03us to 2.29us mean.
+#define MULTICORE 0
+void setup1() {}
+void loop1() { __wfi(); }
 #endif
 
 ///////////////////////////////////////

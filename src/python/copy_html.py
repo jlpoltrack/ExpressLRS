@@ -1,6 +1,12 @@
 Import("env")
 import os, shutil
 
+from elrs_helpers import board_has_wifi
+
+# WebContent.h is only included by the WIFI library, which is not built without WiFi
+if not board_has_wifi(env):
+    Return()
+
 os.chdir('html')
 target_name = env['PIOENV'].upper()
 

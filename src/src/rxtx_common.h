@@ -13,5 +13,10 @@
 #include "POWERMGNT.h"
 #include "deferred.h"
 
+// Set by the mains to hold off the WiFi auto-start; lives here so it exists
+// even on targets built without the WiFi library
+extern bool webserverPreventAutoStart;
+
 void setupTargetCommon();
+void rebootDevice();
 void checkRebootTime(unsigned long now);

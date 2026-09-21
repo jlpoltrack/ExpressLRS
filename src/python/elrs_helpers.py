@@ -43,3 +43,13 @@ class ElrsUploadResult:
         ErrorGeneral = -1
         # ERROR: target mismatch
         ErrorMismatch = -2
+
+
+def board_has_wifi(env):
+    """
+    Every ESP has WiFi. On RP2 it comes from the board's CYW43 module, which the
+    core flags with PICO_CYW43_SUPPORTED, so read that rather than naming boards.
+    """
+    if env.BoardConfig().get("build.mcu", "").lower() not in ("rp2040", "rp2350"):
+        return True
+    return "PICO_CYW43_SUPPORTED" in str(env.BoardConfig().get("build.extra_flags", ""))

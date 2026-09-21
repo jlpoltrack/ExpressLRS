@@ -12,7 +12,9 @@
 #include "devADC.h"
 #include "devLED.h"
 #include "devTXLUA.h"
+#if defined(HAS_WIFI)
 #include "devWIFI.h"
+#endif
 #include "devButton.h"
 #include "devVTX.h"
 #if defined(PLATFORM_ESP32)
@@ -57,7 +59,6 @@ FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
 
 uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]; // Buffer for current stubbon sender packet (mavlink only)
 
-extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
 bool NextPacketIsDataUl = false;  // if true the next packet will contain the uplink data (instead of channels)
 char backpackVersion[32] = "";
@@ -105,7 +106,9 @@ device_affinity_t ui_devices[] = {
   {&RGB_device, 0},
   {&TXLUA_device, 1},
   {&ADC_device, 1},
+#if defined(HAS_WIFI)
   {&WIFI_device, 0},
+#endif
   {&Button_device, 0},
 #if defined(PLATFORM_ESP32)
   {&BLE_device, 0},
@@ -1303,12 +1306,14 @@ bool setupHardwareFromOptions()
 {
   if (!options_init())
   {
+#if defined(HAS_WIFI)
     // Register the WiFi with the framework
     static device_affinity_t wifi_device[] = {
         {&WIFI_device, 1}
     };
     devicesRegister(wifi_device, ARRAY_SIZE(wifi_device));
     devicesInit();
+#endif
 
     setConnectionState(hardwareUndefined);
     return false;

@@ -3,6 +3,7 @@
 #if defined(TARGET_RX)
 
 #include "SerialIO.h"
+#include "RP2SerialTx.h"
 #include "common.h"
 #include "config.h"
 #include "crsf_protocol.h"
@@ -11,7 +12,7 @@
 #define NO_SERIALIO_INTERVAL 1000
 
 extern SerialIO *serialIO;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 extern SerialIO *serial1IO;
 #endif
 
@@ -32,14 +33,14 @@ typedef struct devserial_ctx_s {
 } devserial_ctx_t;
 
 static devserial_ctx_t serial0;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 static devserial_ctx_t serial1;
 #endif
 
 void ICACHE_RAM_ATTR crsfRCFrameAvailable()
 {
     serial0.frameAvailable = true;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     serial1.frameAvailable = true;
 #endif
 }
@@ -47,7 +48,7 @@ void ICACHE_RAM_ATTR crsfRCFrameAvailable()
 void ICACHE_RAM_ATTR crsfRCFrameMissed()
 {
     serial0.frameMissed = true;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     serial1.frameMissed = true;
 #endif
 }
@@ -56,7 +57,7 @@ static int start()
 {
     serial0.io = &serialIO;
     serial0.lastConnectionState = disconnected;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     serial1.io = &serial1IO;
     serial1.lastConnectionState = disconnected;
 #endif
@@ -85,7 +86,7 @@ static int event0()
     return event(&serial0);
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 static int event1()
 {
     return event(&serial1);
@@ -252,7 +253,7 @@ void sendImmediateRC()
 
         (*(serial0.io))->sendRCFrame(sendChannels, missed, ChannelData);
     }
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     if (*(serial1.io) != nullptr && (*(serial1.io))->sendImmediateRC() && connectionState != serialUpdate)
     {
         const bool missed = serial1.frameMissed;
@@ -268,13 +269,17 @@ void sendImmediateRC()
 
 void handleSerialIO()
 {
+#if defined(PLATFORM_RP2)
+    // Keep the UART fed, the core holds UART_IRQ so there is no TX interrupt to do it
+    SerialTxRing.service();
+#endif
     // still get telemetry and send link stats if there's no model match
     if (*(serial0.io) != nullptr)
     {
         (*(serial0.io))->processSerialInput();
         (*(serial0.io))->sendQueuedData((*(serial0.io))->getMaxSerialWriteSize());
     }
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     if (*(serial1.io) != nullptr)
     {
         (*(serial1.io))->processSerialInput();
@@ -288,7 +293,7 @@ static int timeout0()
   return timeout(&serial0);
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 static int timeout1()
 {
   return timeout(&serial1);
@@ -303,7 +308,7 @@ device_t Serial0_device = {
     .subscribe = EVENT_CONNECTION_CHANGED | EVENT_CONFIG_MODEL_CHANGED
 };
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 device_t Serial1_device = {
     .initialize = nullptr,
     .start = start,

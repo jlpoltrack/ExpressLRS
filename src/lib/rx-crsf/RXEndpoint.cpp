@@ -3,7 +3,9 @@
 #if !defined(UNIT_TEST)
 #include "config.h"
 #include "devMSPVTX.h"
+#if defined(PLATFORM_ESP32)
 #include "devVTXSPI.h"
+#endif
 #include "freqTable.h"
 #include "rxtx_intf.h"
 #include "logging.h"

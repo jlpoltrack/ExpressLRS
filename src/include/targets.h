@@ -25,6 +25,29 @@
 #include "native.h"
 #endif
 
+#if defined(PLATFORM_RP2)
+// .time_critical* lands in .data, which the core's linker script copies into RAM at boot,
+// worth -25% alarm latency and -19% ISR average for 8.7KB on a Pico 2W + LR2021 RX. Each
+// site needs a unique section name: ordinary functions collide otherwise, the same reason
+// the SDK's __not_in_flash_func appends the function name.
+#define _IRAM_STR2(x) #x
+#define _IRAM_STR(x) _IRAM_STR2(x)
+#define IRAM_ATTR __attribute__((section(".time_critical." _IRAM_STR(__COUNTER__))))
+#endif
+
+// Every ESP has WiFi; on RP2 it is the board's CYW43 module, so follow the flag
+// the core itself keys off rather than naming each "W" board
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+#define HAS_WIFI
+#elif defined(PLATFORM_RP2) && defined(PICO_CYW43_SUPPORTED)
+#define HAS_WIFI
+#endif
+
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
+// A second hardware UART is free for the Serial1 output protocols
+#define HAS_SERIAL1
+#endif
+
 /*
  * Features
  * define features based on pins before defining pins as UNDEF_PIN
@@ -73,6 +96,9 @@ extern bool pwmSerialDefined;
 
 #if defined(PLATFORM_ESP32)
 #include <soc/uart_pins.h>
+#elif defined(PLATFORM_RP2)
+#define U0RXD_GPIO_NUM (1)
+#define U0TXD_GPIO_NUM (0)
 #endif
 #if !defined(U0RXD_GPIO_NUM)
 #define U0RXD_GPIO_NUM (3)

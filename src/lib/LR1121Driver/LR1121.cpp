@@ -946,10 +946,12 @@ int LR1121Driver::EndUpdate()
     writeBytes(nullptr, 0);
 
     SPIEx.setHwCs(true);
+#if defined(PLATFORM_ESP32)
     if (GPIO_PIN_NSS_2 != UNDEF_PIN)
     {
         spiAttachSS(SPIEx.bus(), 1, GPIO_PIN_NSS_2);
     }
+#endif
 
     if (lr1121UpdateState->totalSize == lr1121UpdateState->expectedFilesize)
     {

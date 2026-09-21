@@ -230,7 +230,7 @@ enum eSerialProtocol : uint8_t
     PROTOCOL_GPS
 };
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 enum eSerial1Protocol : uint8_t
 {
     PROTOCOL_SERIAL1_OFF,

@@ -34,10 +34,13 @@
 #include "devLED.h"
 #include "devRXLUA.h"
 #include "devServoOutput.h"
+#if defined(HAS_WIFI)
 #include "devWIFI.h"
+#endif
 #include "RXEndpoint.h"
 #include "RXOTAConnector.h"
 #include "rx-serial/devSerialIO.h"
+#include "RP2SerialTx.h"
 
 #include <LittleFS.h>
 #if defined(PLATFORM_ESP8266)
@@ -75,14 +78,18 @@
 
 device_affinity_t ui_devices[] = {
   {&Serial0_device, 1},
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
   {&Serial1_device, 1},
+#endif
+#if defined(PLATFORM_ESP32)
   {&SerialUpdate_device, 1},
 #endif
   {&LED_device, 0},
   {&RXLUA_device, 0},
   {&RGB_device, 0},
+#if defined(HAS_WIFI)
   {&WIFI_device, 0},
+#endif
   {&Button_device, 0},
   {&AnalogVbat_device, 0},
   {&ServoOut_device, 1},
@@ -109,15 +116,27 @@ RXOTAConnector otaConnector;
 bool crsfBatterySensorDetected = false;
 bool crsfBaroSensorDetected = false;
 
-extern bool webserverPreventAutoStart;
 bool pwmSerialDefined = false;
 uint32_t serialBaud;
 
 /* SERIAL_PROTOCOL_TX is used by CRSF output */
+#if defined(PLATFORM_RP2)
+// Drivers write through the ring so a full FIFO never stalls the caller
+#define SERIAL_PROTOCOL_TX SerialTxRing
+// Serial is USB CDC on RP2, the CRSF UART is Serial1 (hardware UART0)
+#define SERIAL_PROTOCOL_PORT Serial1
+#else
 #define SERIAL_PROTOCOL_TX Serial
+#define SERIAL_PROTOCOL_PORT Serial
+#endif
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
+    #if defined(PLATFORM_RP2)
+    // Serial2 is hardware UART1
+    #define SERIAL1_PROTOCOL_TX Serial2
+    #else
     #define SERIAL1_PROTOCOL_TX Serial1
+    #endif
 
     // SBUS driver needs to distinguish stream for SBUS/DJI protocol
     const Stream *serial_protocol_tx = &(SERIAL_PROTOCOL_TX);
@@ -128,8 +147,13 @@ uint32_t serialBaud;
 
 SerialIO *serialIO = nullptr;
 
+#if defined(PLATFORM_RP2)
+#define SERIAL_PROTOCOL_RX Serial1
+#define SERIAL1_PROTOCOL_RX Serial2
+#else
 #define SERIAL_PROTOCOL_RX Serial
 #define SERIAL1_PROTOCOL_RX Serial1
+#endif
 
 StubbornSender DataDlSender;
 uint8_t DataDlBuffer[CRSF_MAX_PACKET_LEN];
@@ -206,7 +230,9 @@ static uint8_t debugRcvrLinkstatsFhssIdx;
 
 bool BindingModeRequest = false;
 
+#if defined(HAS_WIFI)
 extern void setWifiUpdateMode();
+#endif
 void reconfigureSerial();
 
 uint8_t getLq()
@@ -1245,11 +1271,13 @@ void DataUlReceiveComplete()
     switch (DataUlBuffer[0])
     {
     case MSP_ELRS_SET_RX_WIFI_MODE: //0x0E
+#if defined(HAS_WIFI)
         // The MSP packet needs to be ACKed so the TX doesn't
         // keep sending it, so defer the switch to wifi
         deferExecutionMillis(500, []() {
             setWifiUpdateMode();
         });
+#endif
         break;
     case MSP_ELRS_MAVLINK_TLM: // 0xFD
         // raw mavlink data
@@ -1363,6 +1391,28 @@ static void setupSerial()
     // ARDUINO_CORE_INVERT_FIX PT2 end
 
     Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
+#elif defined(PLATFORM_RP2)
+    uint16_t serialConfig = SERIAL_8N1;
+
+    if(sbusSerialOutput)
+    {
+        serialConfig = SERIAL_8E2;
+    }
+    else if(hottTlmSerial)
+    {
+        serialConfig = SERIAL_8N2;
+    }
+
+    // Pins must be UART0-capable, TX-only outputs (SBUS/SUMD) may leave RX undefined
+    if (GPIO_PIN_RCSIGNAL_TX != UNDEF_PIN)
+        SERIAL_PROTOCOL_PORT.setTX(GPIO_PIN_RCSIGNAL_TX);
+    if (GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN)
+        SERIAL_PROTOCOL_PORT.setRX(GPIO_PIN_RCSIGNAL_RX);
+    SERIAL_PROTOCOL_PORT.setInvertTX(invert);
+    SERIAL_PROTOCOL_PORT.setInvertRX(invert);
+    SERIAL_PROTOCOL_PORT.setFIFOSize(256);
+    SERIAL_PROTOCOL_PORT.begin(serialBaud, serialConfig);
+    SerialTxRing.begin(uart0);
 #endif
 
     if (firmwareOptions.is_airport)
@@ -1412,15 +1462,47 @@ static void setupSerial()
 #endif
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 static void serial1Shutdown()
 {
     if(serial1IO != nullptr)
     {
-        Serial1.end();
+        SERIAL1_PROTOCOL_TX.end();
         delete serial1IO;
         serial1IO = nullptr;
     }
+}
+
+#if defined(PLATFORM_RP2)
+// UART1-capable TX pins, mirroring the per-chip tables in the core's SerialUART::setTX.
+// RX is always the TX pin plus one, and an out-of-table pin panics inside setRX/setTX.
+#if defined(PICO_RP2350) && !PICO_RP2350A // RP2350B
+static constexpr uint64_t UART1_TX_PINS = (1ULL << 4) | (1ULL << 6) | (1ULL << 8) | (1ULL << 10) | (1ULL << 20) | (1ULL << 22) | (1ULL << 24) | (1ULL << 26) | (1ULL << 36) | (1ULL << 38) | (1ULL << 40) | (1ULL << 42);
+#elif defined(PICO_RP2350) // RP2350A
+static constexpr uint64_t UART1_TX_PINS = (1ULL << 4) | (1ULL << 6) | (1ULL << 8) | (1ULL << 10) | (1ULL << 20) | (1ULL << 22) | (1ULL << 24) | (1ULL << 26);
+#else // RP2040
+static constexpr uint64_t UART1_TX_PINS = (1ULL << 4) | (1ULL << 8) | (1ULL << 20) | (1ULL << 24);
+#endif
+static constexpr uint64_t UART1_RX_PINS = UART1_TX_PINS << 1;
+
+static pin_size_t serial1Pin(int8_t pin, uint64_t validMask)
+{
+    return (pin >= 0 && pin < 64 && (validMask & (1ULL << pin))) ? (pin_size_t)pin : UART_PIN_NOT_DEFINED;
+}
+#endif
+
+static void serial1Begin(unsigned long baud, uint16_t serialConfig, int8_t rxPin, int8_t txPin, bool invert)
+{
+#if defined(PLATFORM_RP2)
+    SERIAL1_PROTOCOL_TX.setRX(serial1Pin(rxPin, UART1_RX_PINS));
+    SERIAL1_PROTOCOL_TX.setTX(serial1Pin(txPin, UART1_TX_PINS));
+    SERIAL1_PROTOCOL_TX.setInvertTX(invert);
+    SERIAL1_PROTOCOL_TX.setInvertRX(invert);
+    SERIAL1_PROTOCOL_TX.setFIFOSize(256);
+    SERIAL1_PROTOCOL_TX.begin(baud, serialConfig);
+#else
+    Serial1.begin(baud, serialConfig, rxPin, txPin, invert);
+#endif
 }
 
 static void setupSerial1()
@@ -1455,40 +1537,40 @@ static void setupSerial1()
         case PROTOCOL_SERIAL1_OFF:
             break;
         case PROTOCOL_SERIAL1_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
+            serial1Begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
             serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_INVERTED_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
+            serial1Begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
             serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_SBUS:
         case PROTOCOL_SERIAL1_DJI_RS_PRO:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
+            serial1Begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
             serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_INVERTED_SBUS:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_SUMD:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSUMD(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_HOTT_TLM:
-            Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
+            serial1Begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
             serial1IO = new SerialHoTT_TLM(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_TRAMP:
-            Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialTramp(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_SMARTAUDIO:
-            Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialSmartAudio(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
+            serial1Begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
             serial1IO = new SerialDisplayport(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
             break;
         case PROTOCOL_SERIAL1_GPS:
@@ -1496,7 +1578,7 @@ static void setupSerial1()
             // shared with RX) the GPS can be read but not configured
             if (serial1RXpin != UNDEF_PIN)
             {
-                Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
+                serial1Begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
                 serial1IO = new SerialGPS(SERIAL1_PROTOCOL_TX, serial1TXpin == serial1RXpin ? UNDEF_PIN : serial1TXpin);
             }
             break;
@@ -1518,7 +1600,10 @@ static void serialShutdown()
     BackpackOrLogStrm = new NullStream();
     if(serialIO != nullptr)
     {
-        Serial.end();
+#if defined(PLATFORM_RP2)
+        SERIAL_PROTOCOL_TX.end(); // drain the ring before the UART goes away
+#endif
+        SERIAL_PROTOCOL_PORT.end();
         delete serialIO;
         serialIO = nullptr;
     }
@@ -1833,7 +1918,7 @@ void EnterBindingModeSafely()
         // Force 3-plug binding mode
         config.SetPowerOnCounter(3);
         config.Commit();
-        ESP.restart();
+        rebootDevice();
         // Unreachable
     }
 
@@ -1992,7 +2077,7 @@ void resetConfigAndReboot()
     LittleFS.begin();
     options_SetTrueDefaults();
 
-    ESP.restart();
+    rebootDevice();
 }
 
 void setup()
@@ -2003,12 +2088,14 @@ void setup()
         // if it decides to log something
         BackpackOrLogStrm = new NullStream();
 
+#if defined(HAS_WIFI)
         // Register the WiFi with the framework
         static device_affinity_t wifi_device[] = {
             {&WIFI_device, 1}
         };
         devicesRegister(wifi_device, ARRAY_SIZE(wifi_device));
         devicesInit();
+#endif
 
         setConnectionState(hardwareUndefined);
     }

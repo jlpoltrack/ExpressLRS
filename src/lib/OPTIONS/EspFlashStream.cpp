@@ -9,6 +9,11 @@ EspFlashStream::EspFlashStream()
 
 void EspFlashStream::fillBuffer()
 {
+#if defined(PLATFORM_RP2)
+    // Flash is memory-mapped (XIP), _flashBase is an absolute address
+    memcpy(_buffer, (const void *)(_flashBase + _flashOffset), sizeof(_buffer));
+    _bufferPos = 0;
+#else
     // Could also use spi_flash_read() here, but the return values differ between ESP (SPI_FLASH_RESULT_OK) and ESP32 (ESP_OK)
     if (ESP.flashRead(_flashBase + _flashOffset, (uint32_t *)_buffer, sizeof(_buffer)))
     {
@@ -19,6 +24,7 @@ void EspFlashStream::fillBuffer()
         // _bufferPos > sizeof() indicates error
         _bufferPos = sizeof(_buffer) + 1;
     }
+#endif
 }
 
 void EspFlashStream::setBaseAddress(size_t base)

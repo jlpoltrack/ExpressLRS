@@ -293,7 +293,7 @@ public:
     bool GetForceTlmOff() const { return m_config.forceTlmOff; }
     uint8_t GetRateInitialIdx() const { return m_config.rateInitialIdx; }
     eSerialProtocol GetSerialProtocol() const { return (eSerialProtocol)m_config.serialProtocol; }
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     eSerial1Protocol GetSerial1Protocol() const { return (eSerial1Protocol)m_config.serial1Protocol; }
 #endif
     uint8_t GetTeamraceChannel() const { return m_config.teamraceChannel; }
@@ -318,7 +318,7 @@ public:
     void SetForceTlmOff(bool forceTlmOff);
     void SetRateInitialIdx(uint8_t rateInitialIdx);
     void SetSerialProtocol(eSerialProtocol serialProtocol);
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     void SetSerial1Protocol(eSerial1Protocol serial1Protocol);
 #endif
     void SetTeamraceChannel(uint8_t teamraceChannel);

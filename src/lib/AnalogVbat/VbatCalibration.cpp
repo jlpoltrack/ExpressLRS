@@ -34,7 +34,7 @@ typedef struct {
 
 static const voltageSourceCalibration_t voltageSources[VOLTAGE_SOURCE_COUNT] = {
     {"vbat", "VBat", HARDWARE_vbat, HARDWARE_vbat_offset, HARDWARE_vbat_scale, HARDWARE_vbat_atten, HARDWARE_vbat_noreading, HARDWARE_vbat_cal_min, HARDWARE_vbat_cal_max},
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
     {"vsrc1", "VSrc1", HARDWARE_vsrc1, HARDWARE_vsrc1_offset, HARDWARE_vsrc1_scale, HARDWARE_vsrc1_atten, HARDWARE_vsrc1_noreading, HARDWARE_vsrc1_cal_min, HARDWARE_vsrc1_cal_max},
     {"vsrc2", "VSrc2", HARDWARE_vsrc2, HARDWARE_vsrc2_offset, HARDWARE_vsrc2_scale, HARDWARE_vsrc2_atten, HARDWARE_vsrc2_noreading, HARDWARE_vsrc2_cal_min, HARDWARE_vsrc2_cal_max},
     {"vsrc3", "VSrc3", HARDWARE_vsrc3, HARDWARE_vsrc3_offset, HARDWARE_vsrc3_scale, HARDWARE_vsrc3_atten, HARDWARE_vsrc3_noreading, HARDWARE_vsrc3_cal_min, HARDWARE_vsrc3_cal_max}
@@ -160,6 +160,8 @@ bool VbatCalibration_sampleSource(const uint8_t sourceIdx, int atten, uint8_t sa
 #if defined(PLATFORM_ESP32)
     analogReadResolution(12);
     analogSetPinAttenuation(hardware_pin(voltageSources[sourceIdx].hardwarePin), (adc_attenuation_t)getSamplingAttenuation(atten));
+#elif defined(PLATFORM_RP2)
+    analogReadResolution(12);
 #endif
 
     uint16_t rawValues[samples] {};

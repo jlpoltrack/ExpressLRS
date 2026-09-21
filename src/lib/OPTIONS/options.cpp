@@ -35,6 +35,14 @@ firmware_options_t firmwareOptions;
 #include "esp_ota_ops.h"
 #endif
 
+#if defined(PLATFORM_RP2)
+// Flash is XIP-mapped, so the end of the binary is already an absolute address
+extern char __flash_binary_end;
+#define ELRS_SKETCH_SIZE ((uint32_t)&__flash_binary_end)
+#else
+#define ELRS_SKETCH_SIZE (ESP.getSketchSize())
+#endif
+
 char product_name[ELRSOPTS_PRODUCTNAME_SIZE+1];
 char device_name[ELRSOPTS_DEVICENAME_SIZE+1];
 uint32_t logo_image;
@@ -52,7 +60,7 @@ String& getOptions()
 
 void setOptions(String &options)
 {
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     builtinOptions.concat(options);
 }
 
@@ -90,7 +98,7 @@ void saveOptions(Stream &stream, bool customised)
     doc["flash-discriminator"] = firmwareOptions.flash_discriminator;
 
     serializeJson(doc, stream);
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     serializeJson(doc, builtinOptions);
 }
 
@@ -203,7 +211,7 @@ static void options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
     firmwareOptions.domain = doc["domain"] | 0;
     firmwareOptions.flash_discriminator = doc["flash-discriminator"] | 0U;
 
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     saveOptions(builtinOptions, doc["customised"] | false);
 }
 
@@ -272,7 +280,7 @@ bool options_init()
 #endif
 
     EspFlashStream strmFlash;
-    strmFlash.setBaseAddress(baseAddr + ESP.getSketchSize());
+    strmFlash.setBaseAddress(baseAddr + ELRS_SKETCH_SIZE);
 
     // Product / Device Name
     options_LoadProductAndDeviceName(strmFlash);
@@ -281,7 +289,7 @@ bool options_init()
     // hardware.json
     bool hasHardware = hardware_init(strmFlash);
     // flash location of logo image in RGB565 format
-    logo_image = baseAddr + ESP.getSketchSize() +
+    logo_image = baseAddr + ELRS_SKETCH_SIZE +
         ELRSOPTS_PRODUCTNAME_SIZE +
         ELRSOPTS_DEVICENAME_SIZE +
         ELRSOPTS_OPTIONS_SIZE +

@@ -20,8 +20,8 @@ def findFirmwareEnd(f):
     f.seek(0, 0)
     (magic, segments, _, _, _) = struct.unpack('<BBBBI', f.read(8))
     if magic != 0xe9:
-        sys.stderr.write('The file provided does not the right magic for a firmware file!\n')
-        exit(1)
+        # Not an ESP image (e.g. RP2350 raw binary), options are appended at the end
+        return f.seek(0, 2)
 
     is8285 = False
     if segments == 2: # we have to assume it's an ESP8266/85

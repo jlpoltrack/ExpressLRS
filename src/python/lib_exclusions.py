@@ -26,8 +26,14 @@ LIBRARY_EXCLUSIONS = {
     "RX": {
         "*": ("ADC","Backpack","BLE","GSENSOR","Handset","POWER_DETECT","SCREEN","tx-crsf","VTX"),
         "esp8285": ("MSPVTX","VTXSPI"),
+        "rp2040": ("VTXSPI","THERMAL","SerialUpdate"),
+        "rp2350": ("VTXSPI","THERMAL","SerialUpdate"),
     }
 }
+
+
+# Libraries that only exist to serve the WiFi web UI / OTA
+WIFI_LIBRARIES = ("WIFI", "ESPAsyncWebServer", "RPAsyncTCP")
 
 
 def get_target_type(target_name):
@@ -40,12 +46,15 @@ def get_excluded_libraries(target_type, mcu):
     return target_exclusions.get("*", ()) + target_exclusions.get(mcu, ())
 
 Import("env")
+from elrs_helpers import board_has_wifi
 
+mcu = env.BoardConfig().get("build.mcu", "").lower()
 target_type = get_target_type(env["PIOENV"])
 excluded_libraries = ()
 if target_type:
-    mcu = env.BoardConfig().get("build.mcu", "").lower()
     excluded_libraries = get_excluded_libraries(target_type, mcu)
+if not board_has_wifi(env):
+    excluded_libraries += WIFI_LIBRARIES
 
 if excluded_libraries:
     config = env.GetProjectConfig()
