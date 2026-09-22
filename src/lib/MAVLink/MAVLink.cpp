@@ -112,10 +112,12 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
                 if (battery_status.id != 0) {
                     break;
                 }
+                // UINT16_MAX means the voltage is unknown, e.g. no battery connected
+                const uint16_t voltage_mv = battery_status.voltages[0] == UINT16_MAX ? 0 : battery_status.voltages[0];
                 CRSF_MK_FRAME_T(crsf_sensor_battery_t)
                 crsfbatt = {0};
                 // mV -> mv*100
-                crsfbatt.p.voltage = htobe16(battery_status.voltages[0] / 100);
+                crsfbatt.p.voltage = htobe16(voltage_mv / 100);
                 // cA -> mA*100
                 crsfbatt.p.current = 0;
                 if (battery_status.current_battery > 0){ // int16_t, -1 means invalid
@@ -135,7 +137,7 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
                 crsfRouter.deliverMessageTo(destination, &crsfbatt.h);
 
                 // send the batt1 message to Yaapu Telemetry Script
-                ap_send_crsf_passthrough_single(destination, 0x5003, format_batt1(battery_status.voltages[0], battery_status.current_battery, battery_status.current_consumed));
+                ap_send_crsf_passthrough_single(destination, 0x5003, format_batt1(voltage_mv, battery_status.current_battery, battery_status.current_consumed));
                 break;
             }
             case MAVLINK_MSG_ID_GPS_RAW_INT: {
