@@ -180,6 +180,10 @@ void SerialDroneCAN::logStats()
           s.driver.rxQueueFull, s.driver.txFailed, s.driver.busOff, s.driver.busErrors, s.driver.errataResets,
           s.txStalls, s.tunnelInDropped, tunnelStream.rxToFcDropped, inputBufferPeak, s.tunnelInBytes,
           s.rxTransferErrors, s.nodeInfoRequests);
+    if (s.fwKB)
+        DBGLN("DC fw=%uKB", s.fwKB);
+    if (s.fwError)
+        DBGLN("DC fw failed: %s", s.fwError);
     inputBufferPeak = 0;
     tunnelStream.rxToFcDropped = 0;
 #endif

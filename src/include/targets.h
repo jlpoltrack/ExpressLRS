@@ -31,7 +31,7 @@
 #include "rp2.h"
 #endif
 
-// RP2 is flashed over USB only, there is no web UI or OTA
+// RP2 has no WiFi: it is flashed over USB, or over DroneCAN (HAS_DRONECAN_FW_UPDATE)
 #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
 #define HAS_WIFI
 #endif
@@ -41,6 +41,10 @@
 #define HAS_SERIAL1
 // MAVLink over DroneCAN: TWAI on ESP32, can2040 on RP2
 #define HAS_DRONECAN
+#endif
+#if defined(PLATFORM_RP2)
+// Firmware update over DroneCAN, written straight over the app in flash as it runs from RAM
+#define HAS_DRONECAN_FW_UPDATE
 #endif
 
 /*
