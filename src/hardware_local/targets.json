@@ -1,0 +1,13 @@
+{
+    "diy": {
+        "rx_dual": {
+            "rp2350-lr2021f33": {
+                "product_name": "DIY RP2350 NiceRF LR2021F33 RX",
+                "lua_name": "RP2350 LR2021",
+                "layout_file": "DIY RP2350 LR2021F33.json",
+                "platform": "rp2350",
+                "firmware": "Unified_RP2350_LR2021_RX"
+            }
+        }
+    }
+}

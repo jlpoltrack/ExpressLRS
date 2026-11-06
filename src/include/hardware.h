@@ -8,6 +8,8 @@ typedef enum {
     HARDWARE_serial_tx,
     HARDWARE_serial1_rx,
     HARDWARE_serial1_tx,
+    HARDWARE_can_rx,
+    HARDWARE_can_tx,
 
     // Radio
     HARDWARE_radio_busy,

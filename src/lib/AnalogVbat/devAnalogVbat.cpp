@@ -40,7 +40,7 @@ static bool calibrationActive;
 
 static const voltageSource_t voltageSources[VOLTAGE_SOURCE_COUNT] = {
     {HARDWARE_vbat, HARDWARE_vbat_offset, HARDWARE_vbat_scale, HARDWARE_vbat_atten, HARDWARE_vbat_noreading},
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
     {HARDWARE_vsrc1, HARDWARE_vsrc1_offset, HARDWARE_vsrc1_scale, HARDWARE_vsrc1_atten, HARDWARE_vsrc1_noreading},
     {HARDWARE_vsrc2, HARDWARE_vsrc2_offset, HARDWARE_vsrc2_scale, HARDWARE_vsrc2_atten, HARDWARE_vsrc2_noreading},
     {HARDWARE_vsrc3, HARDWARE_vsrc3_offset, HARDWARE_vsrc3_scale, HARDWARE_vsrc3_atten, HARDWARE_vsrc3_noreading}
@@ -141,6 +141,8 @@ static int start()
 
         analogSetPinAttenuation(hardware_pin(voltageSources[sourceIdx].hardwarePin), (adc_attenuation_t)atten);
     }
+#elif defined(PLATFORM_RP2)
+    analogReadResolution(12);
 #endif
 
     return VBAT_SAMPLE_INTERVAL;
@@ -177,7 +179,7 @@ static void reportVbat()
     if (triggerPacket || (now - lastTelemSentMs >= VBAT_MIN_CRSFRATE))
     {
         // send battery packets (0x08) only if no external decive is sending 0x08 packets
-        if (!crsfBatterySensorDetected && config.GetSerialProtocol() != PROTOCOL_MAVLINK)
+        if (!crsfBatterySensorDetected && !isMavlinkProtocol(config.GetSerialProtocol()))
         {
             // CRSF_FRAMETYPE_BATTERY (0x08)
             CRSF_MK_FRAME_T(crsf_sensor_battery_t) crsfbatt = { 0 };

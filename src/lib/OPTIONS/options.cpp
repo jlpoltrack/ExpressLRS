@@ -52,7 +52,7 @@ String& getOptions()
 
 void setOptions(String &options)
 {
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     builtinOptions.concat(options);
 }
 
@@ -90,7 +90,7 @@ void saveOptions(Stream &stream, bool customised)
     doc["flash-discriminator"] = firmwareOptions.flash_discriminator;
 
     serializeJson(doc, stream);
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     serializeJson(doc, builtinOptions);
 }
 
@@ -203,7 +203,7 @@ static void options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
     firmwareOptions.domain = doc["domain"] | 0;
     firmwareOptions.flash_discriminator = doc["flash-discriminator"] | 0U;
 
-    builtinOptions.clear();
+    builtinOptions.remove(0);
     saveOptions(builtinOptions, doc["customised"] | false);
 }
 

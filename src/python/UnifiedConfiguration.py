@@ -12,6 +12,9 @@ import sys
 # project option is set, so an automated build/upload never needs a TTY.
 ENV_UNIFIED_CONFIG = "ELRS_UNIFIED_CONFIG"
 
+# Products not (yet) in the upstream targets repo, laid out like hardware/ (targets.json, RX/, TX/)
+LOCAL_HARDWARE_DIR = "hardware_local"
+
 from external import jmespath
 from firmware import TXType
 
@@ -20,8 +23,8 @@ def findFirmwareEnd(f):
     f.seek(0, 0)
     (magic, segments, _, _, _) = struct.unpack('<BBBBI', f.read(8))
     if magic != 0xe9:
-        sys.stderr.write('The file provided does not the right magic for a firmware file!\n')
-        exit(1)
+        # Not an ESP image (e.g. RP2350 raw binary), options are appended at the end
+        return f.seek(0, 2)
 
     is8285 = False
     if segments == 2: # we have to assume it's an ESP8266/85
@@ -40,6 +43,32 @@ def findFirmwareEnd(f):
     if not is8285:
         pos = pos + 32
     return pos
+
+def loadTargets() -> dict:
+    """targets.json from the upstream targets repo, with the products in hardware_local/ merged in"""
+    with open('hardware/targets.json') as f:
+        targets = json.load(f)
+    local_file = os.path.join(LOCAL_HARDWARE_DIR, 'targets.json')
+    if not os.path.exists(local_file):
+        return targets
+    with open(local_file) as f:
+        local = json.load(f)
+    for vendor_id, vendor in local.items():
+        merged_vendor = targets.setdefault(vendor_id, {})
+        for category_id, category in vendor.items():
+            if not isinstance(category, dict):
+                merged_vendor.setdefault(category_id, category)   # vendor display name
+                continue
+            merged_category = merged_vendor.setdefault(category_id, {})
+            for product_id, product in category.items():
+                if product_id in merged_category:
+                    sys.stderr.write(f'{local_file}: {vendor_id}.{category_id}.{product_id} is also upstream, using the local one\n')
+                merged_category[product_id] = dict(product, hardware_dir=LOCAL_HARDWARE_DIR)
+    return targets
+
+def layoutFile(config: dict) -> str:
+    dir = 'TX' if '_TX' in config['firmware'] else 'RX'
+    return os.path.join(config.get('hardware_dir', 'hardware'), dir, config['layout_file'])
 
 def appendToFirmware(firmware_file, product_name, lua_name, defines, config, layout_file, rx_as_tx):
     product = (product_name.encode() + (b'\0' * 128))[0:128]
@@ -204,9 +233,7 @@ def doConfiguration(file, defines, config, target_name, device_name, rx_as_tx):
     lua_name = "Unified"
     layout = None
 
-    targets = {}
-    with open('hardware/targets.json') as f:
-        targets = json.load(f)
+    targets = loadTargets()
 
     if config is not None:
         requested = config
@@ -226,8 +253,7 @@ def doConfiguration(file, defines, config, target_name, device_name, rx_as_tx):
         product_name = config['product_name']
         setDefaultProductForTarget(target_name, product_name)
         lua_name = config['lua_name']
-        dir = 'TX' if '_TX' in config['firmware'] else 'RX'
-        layout = f"hardware/{dir}/{config['layout_file']}"
+        layout = layoutFile(config)
 
     lua_name = lua_name if device_name is None else device_name
     appendToFirmware(file, product_name, lua_name, defines, config, layout, rx_as_tx)
@@ -257,9 +283,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    targets = {}
-    with open('hardware/targets.json') as f:
-        targets = json.load(f)
+    targets = loadTargets()
 
     config ='.'.join(map(lambda s: f'"{s}"', args.target.split('.')))
     config = jmespath.search(config, targets)
@@ -267,7 +291,6 @@ if __name__ == '__main__':
     if config is not None:
         product_name = config['product_name']
         lua_name = config['lua_name']
-        dir = 'TX' if '_TX' in config['firmware'] else 'RX'
-        layout = f"hardware/{dir}/{config['layout_file']}"
+        layout = layoutFile(config)
 
     appendToFirmware(args.file, product_name, lua_name, args.options, config, layout, None)

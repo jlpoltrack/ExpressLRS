@@ -54,9 +54,16 @@ static void setupWire()
     if(gpio_sda != UNDEF_PIN && gpio_scl != UNDEF_PIN)
     {
         DBGLN("Starting wire on SCL %d, SDA %d", gpio_scl, gpio_sda);
+#if defined(PLATFORM_RP2)
+        // Wire is i2c0, so pins must be i2c0-capable (GPIO n where (n/2)%2 == 0)
+        Wire.setSDA(gpio_sda);
+        Wire.setSCL(gpio_scl);
+        Wire.begin();
+#else
         // ESP hopes to get Wire::begin(int, int)
         // ESP32 hopes to get Wire::begin(int = -1, int = -1, uint32 = 0)
         Wire.begin(gpio_sda, gpio_scl);
+#endif
         Wire.setClock(400000);
         i2c_enabled = true;
     }

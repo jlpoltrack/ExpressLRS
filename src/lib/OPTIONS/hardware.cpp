@@ -23,6 +23,8 @@ typedef enum {
     X(HARDWARE_serial_tx, "serial_tx", INT) \
     X(HARDWARE_serial1_rx, "serial1_rx", INT) \
     X(HARDWARE_serial1_tx, "serial1_tx", INT) \
+    X(HARDWARE_can_rx, "can_rx", INT) \
+    X(HARDWARE_can_tx, "can_tx", INT) \
     X(HARDWARE_radio_busy, "radio_busy", INT) \
     X(HARDWARE_radio_busy_2, "radio_busy_2", INT) \
     X(HARDWARE_radio_dio0, "radio_dio0", INT) \
@@ -232,7 +234,8 @@ static void hardware_LoadFieldsFromDoc(JsonDocument &doc)
     for (size_t i = 0; i < ARRAY_SIZE(fields); i++) {
         field_t field;
         memcpy_P(&field, &fields[i], sizeof(field));
-        const __FlashStringHelper *name = FPSTR(field.name);
+        // __FlashStringHelper* on ESP, plain const char* on RP2 (Arduino-Pico 6.1+)
+        auto name = FPSTR(field.name);
         if (doc[name].is<JsonVariant>()) {
             switch (field.type) {
                 case INT:
@@ -265,7 +268,7 @@ static void hardware_LoadFieldsFromDoc(JsonDocument &doc)
 bool hardware_init(EspFlashStream &strmFlash)
 {
     hardware_ClearAllFields();
-    builtinHardwareConfig.clear();
+    builtinHardwareConfig.remove(0);
 
     Stream *strmSrc;
     JsonDocument doc;

@@ -25,6 +25,24 @@
 #include "native.h"
 #endif
 
+#if defined(PLATFORM_RP2)
+// All code and constants are linked to run from RAM (python/rp2_ram_app.py)
+#define IRAM_ATTR
+#include "rp2.h"
+#endif
+
+// RP2 is flashed over USB only, there is no web UI or OTA
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+#define HAS_WIFI
+#endif
+
+#if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
+// A second hardware UART is free for the Serial1 output protocols
+#define HAS_SERIAL1
+// MAVLink over DroneCAN: TWAI on ESP32, can2040 on RP2
+#define HAS_DRONECAN
+#endif
+
 /*
  * Features
  * define features based on pins before defining pins as UNDEF_PIN
@@ -73,6 +91,9 @@ extern bool pwmSerialDefined;
 
 #if defined(PLATFORM_ESP32)
 #include <soc/uart_pins.h>
+#elif defined(PLATFORM_RP2)
+#define U0RXD_GPIO_NUM (1)
+#define U0TXD_GPIO_NUM (0)
 #endif
 #if !defined(U0RXD_GPIO_NUM)
 #define U0RXD_GPIO_NUM (3)

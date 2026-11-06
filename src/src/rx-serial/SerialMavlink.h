@@ -11,7 +11,7 @@
 extern FIFO<MAV_INPUT_BUF_LEN> mavlinkInputBuffer;
 extern FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
-class SerialMavlink final : public SerialIO {
+class SerialMavlink : public SerialIO {
 public:
     explicit SerialMavlink(Stream &out, Stream &in);
     ~SerialMavlink() override = default;
@@ -25,6 +25,10 @@ public:
     bool GetNextPayload(uint8_t *nextPayloadSize, uint8_t *payloadData);
 
     void event() override;
+
+protected:
+    // Bytes from the FC waiting to go over the air, reported to the FC via RADIO_STATUS.txbuf
+    uint16_t inputBufferUsed() const { return mavlinkInputBuffer.size(); }
 
 private:
     void processBytes(uint8_t *bytes, u_int16_t size) override;

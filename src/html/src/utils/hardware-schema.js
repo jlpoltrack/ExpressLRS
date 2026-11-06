@@ -37,6 +37,24 @@ const HARDWARE_SCHEMA = [
             },
         ]
     },
+    {
+        title: 'CAN Pins', rows: [
+            {
+                id: 'can_rx',
+                label: 'RX pin',
+                type: 'uint',
+                icon: 'input',
+                desc: 'CAN transceiver RX for MAVLink DroneCAN, the CRSF serial RX pin is used if not set'
+            },
+            {
+                id: 'can_tx',
+                label: 'TX pin',
+                type: 'uint',
+                icon: 'output',
+                desc: 'CAN transceiver TX for MAVLink DroneCAN, the CRSF serial TX pin is used if not set'
+            },
+        ]
+    },
     /* /FEATURE: NOT IS_8285 */
 
     {
