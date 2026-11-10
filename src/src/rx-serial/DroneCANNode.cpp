@@ -7,8 +7,6 @@
 #include "options.h"
 #include "logging.h"
 
-#include "dsdl/uavcan.protocol.NodeStatus.h"
-
 #if defined(PLATFORM_ESP32)
 #include "TWAIDriver.h"
 #include "esp_mac.h"
@@ -31,10 +29,15 @@ using CANDriver = CAN2040Driver;
 
 // Acceptance filter mask: everything but priority (28..24) and source node (6..0)
 #define CAN_ID_MASK_TYPE_DEST       0x00FFFF80
+// Destination and service bit only
+#define CAN_ID_MASK_SERVICE_DEST    0x00007F80
 
 static_assert(DRONECAN_BUF_SIZE >= UAVCAN_TUNNEL_TARGETTED_MAX_SIZE, "DRONECAN_BUF_SIZE too small");
 static_assert(DRONECAN_BUF_SIZE >= DRONECAN_SENSORS_RC_RCINPUT_MAX_SIZE, "DRONECAN_BUF_SIZE too small");
 static_assert(DRONECAN_BUF_SIZE >= UAVCAN_PROTOCOL_NODESTATUS_MAX_SIZE, "DRONECAN_BUF_SIZE too small");
+#if defined(HAS_DRONECAN_FW_UPDATE)
+static_assert(DRONECAN_BUF_SIZE >= UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_RESPONSE_MAX_SIZE, "DRONECAN_BUF_SIZE too small");
+#endif
 
 static uint64_t micros64()
 {
@@ -95,7 +98,12 @@ void DroneCANNode::start()
     // requests to us (service type, request, destination, service bit set)
     const CANFilter filter {
         UAVCAN_TUNNEL_TARGETTED_ID << 8, CAN_ID_MASK_TYPE_DEST,
+#if defined(HAS_DRONECAN_FW_UPDATE)
+        // Any service frame to us: also BeginFirmwareUpdate requests and file.Read responses
+        (DRONECAN_NODE_ID << 8) | (1 << 7), CAN_ID_MASK_SERVICE_DEST,
+#else
         (UAVCAN_PROTOCOL_GETNODEINFO_ID << 16) | (1 << 15) | (DRONECAN_NODE_ID << 8) | (1 << 7), CAN_ID_MASK_TYPE_DEST,
+#endif
     };
     if (CANDriver::begin(txPin, rxPin, filter))
         started.store(true, std::memory_order_release);
@@ -145,6 +153,10 @@ void DroneCANNode::service()
         publishStats();
     }
 
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    fwUpdate.service(&canard, now);
+#endif
+
     if (serverNodeId() == 0 || !busActive())
     {
         // Nowhere to send until the FC has opened the tunnel and is acknowledging
@@ -166,6 +178,10 @@ void DroneCANNode::publishStats()
     stats.state = CANDriver::state();
     stats.tec = CANDriver::txErrorCounter();
     stats.rec = CANDriver::rxErrorCounter();
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    stats.fwKB = fwUpdate.active() ? fwUpdate.progressKB() : 0;
+    stats.fwError = fwUpdate.takeError();
+#endif
     lock();
     published = stats;
     publishedFresh = true;
@@ -257,12 +273,27 @@ void DroneCANNode::processTxQueue()
     }
 }
 
-void DroneCANNode::sendNodeStatus()
+void DroneCANNode::fillNodeStatus(uavcan_protocol_NodeStatus &status)
 {
-    uavcan_protocol_NodeStatus status {};
     status.uptime_sec = millis() / 1000;
     status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK;
     status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_OPERATIONAL;
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    if (fwUpdate.active())
+    {
+        status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_SOFTWARE_UPDATE;
+        status.vendor_specific_status_code = fwUpdate.progressKB();
+    }
+    // Running from RAM with no bootable image in flash, the next power cycle lands in BOOTSEL
+    if (fwUpdate.invalidated())
+        status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_CRITICAL;
+#endif
+}
+
+void DroneCANNode::sendNodeStatus()
+{
+    uavcan_protocol_NodeStatus status {};
+    fillNodeStatus(status);
 
     const uint32_t len = uavcan_protocol_NodeStatus_encode(&status, encodeBuf);
     canardBroadcast(&canard, UAVCAN_PROTOCOL_NODESTATUS_SIGNATURE, UAVCAN_PROTOCOL_NODESTATUS_ID,
@@ -274,9 +305,7 @@ void DroneCANNode::handleGetNodeInfo(CanardInstance *ins, CanardRxTransfer *tran
     uavcan_protocol_GetNodeInfoResponse &info = scratch.nodeInfo;
     memset(&info, 0, sizeof(info));
 
-    info.status.uptime_sec = millis() / 1000;
-    info.status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK;
-    info.status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_OPERATIONAL;
+    fillNodeStatus(info.status);
 
     // strtoul rather than sscanf, which links ~25KB of newlib scanf/strtod
     char *end;
@@ -363,6 +392,18 @@ bool DroneCANNode::shouldAcceptTransfer(uint64_t *outSignature, uint16_t dataTyp
         *outSignature = UAVCAN_TUNNEL_TARGETTED_SIGNATURE;
         return true;
     }
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    if (transferType == CanardTransferTypeRequest && dataTypeId == UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID)
+    {
+        *outSignature = UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE;
+        return true;
+    }
+    if (transferType == CanardTransferTypeResponse && dataTypeId == UAVCAN_PROTOCOL_FILE_READ_ID)
+    {
+        *outSignature = UAVCAN_PROTOCOL_FILE_READ_SIGNATURE;
+        return true;
+    }
+#endif
     return false;
 }
 
@@ -376,6 +417,36 @@ void DroneCANNode::onTransferReceived(CanardInstance *ins, CanardRxTransfer *tra
     {
         handleTunnel(transfer);
     }
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    else if (transfer->transfer_type == CanardTransferTypeRequest && transfer->data_type_id == UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID)
+    {
+        handleBeginFirmwareUpdate(ins, transfer);
+    }
+    else if (transfer->transfer_type == CanardTransferTypeResponse && transfer->data_type_id == UAVCAN_PROTOCOL_FILE_READ_ID)
+    {
+        if (!uavcan_protocol_file_ReadResponse_decode(transfer, &scratch.fileRead))
+            fwUpdate.onReadResponse(transfer, scratch.fileRead, millis());
+    }
+#endif
 }
+
+#if defined(HAS_DRONECAN_FW_UPDATE)
+void DroneCANNode::handleBeginFirmwareUpdate(CanardInstance *ins, CanardRxTransfer *transfer)
+{
+    uavcan_protocol_file_BeginFirmwareUpdateRequest &req = scratch.beginFwUpdate;
+    if (uavcan_protocol_file_BeginFirmwareUpdateRequest_decode(transfer, &req))
+        return;
+
+    // A source node id of 0 means the caller is the file server
+    const uint8_t fileServer = req.source_node_id ? req.source_node_id : transfer->source_node_id;
+    uavcan_protocol_file_BeginFirmwareUpdateResponse resp {};
+    resp.error = fwUpdate.begin(fileServer, req.image_file_remote_path, connectionState == connected, millis());
+
+    const uint32_t len = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&resp, encodeBuf);
+    canardRequestOrRespond(ins, transfer->source_node_id, UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE,
+                           UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID, &transfer->transfer_id, transfer->priority,
+                           CanardResponse, encodeBuf, len);
+}
+#endif
 
 #endif

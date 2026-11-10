@@ -11,7 +11,11 @@
 #include "canard.h"
 #include "dsdl/dronecan.sensors.rc.RCInput.h"
 #include "dsdl/uavcan.protocol.GetNodeInfo.h"
+#include "dsdl/uavcan.protocol.NodeStatus.h"
 #include "dsdl/uavcan.tunnel.Targetted.h"
+#if defined(HAS_DRONECAN_FW_UPDATE)
+#include "DroneCANFwUpdate.h"
+#endif
 #if defined(PLATFORM_RP2)
 #include "rp2_core1.h"
 #include <pico/critical_section.h>
@@ -26,6 +30,9 @@ struct DroneCANNodeStats {
     CANStats driver;
     CANState state;
     uint8_t tec, rec;
+    // Firmware update: KB received while one runs, and why one failed since the last stats
+    uint16_t fwKB;
+    const char *fwError;
 };
 
 // The DroneCAN node: libcanard and the CAN driver, run on core 1 (RP2) or from the main loop (ESP32).
@@ -69,9 +76,13 @@ private:
     void processTxQueue();
     void sendRC();
     void sendNodeStatus();
+    void fillNodeStatus(uavcan_protocol_NodeStatus &status);
     void sendTunnel();
     void handleGetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer);
     void handleTunnel(CanardRxTransfer *transfer);
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    void handleBeginFirmwareUpdate(CanardInstance *ins, CanardRxTransfer *transfer);
+#endif
     void publishStats();
 
     const int8_t txPin, rxPin;
@@ -98,7 +109,15 @@ private:
         uavcan_protocol_GetNodeInfoResponse nodeInfo;
         uavcan_tunnel_Targetted tunnel;
         dronecan_sensors_rc_RCInput rcInput;
+#if defined(HAS_DRONECAN_FW_UPDATE)
+        uavcan_protocol_file_BeginFirmwareUpdateRequest beginFwUpdate;
+        uavcan_protocol_file_ReadResponse fileRead;
+#endif
     } scratch;
+
+#if defined(HAS_DRONECAN_FW_UPDATE)
+    DroneCANFwUpdate fwUpdate;
+#endif
 
     uint32_t lastNodeStatusMs = 0;
     uint32_t lastTunnelMs = 0;
