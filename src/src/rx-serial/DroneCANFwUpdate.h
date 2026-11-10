@@ -5,6 +5,7 @@
 #if defined(TARGET_RX) && defined(HAS_DRONECAN_FW_UPDATE)
 
 #include "canard.h"
+#include "CANTypes.h"
 #include "dsdl/uavcan.protocol.file.BeginFirmwareUpdate.h"
 #include "dsdl/uavcan.protocol.file.Read.h"
 
@@ -19,7 +20,7 @@ public:
     // Refused while connected to a TX, the only time the link can commit config to flash
     uint8_t begin(uint8_t serverNode, const uavcan_protocol_file_Path &path, bool connected, uint32_t nowMs);
     // Sends file.Read requests and handles their timeouts, call from every service()
-    void service(CanardInstance *canard, uint32_t nowMs);
+    void service(CanardInstance *canard, uint32_t nowMs, bool canfd);
     void onReadResponse(const CanardRxTransfer *transfer, const uavcan_protocol_file_ReadResponse &resp, uint32_t nowMs);
 
     bool active() const { return state == FETCHING; }
@@ -33,7 +34,7 @@ private:
     enum State : uint8_t { IDLE, FETCHING };
 
     void fail(const char *why);
-    void sendRead(CanardInstance *canard, uint32_t nowMs);
+    void sendRead(CanardInstance *canard, uint32_t nowMs, bool canfd);
     bool acceptData(const uint8_t *data, uint32_t len);
     bool finish();
 

@@ -13,10 +13,15 @@
 #include "esp_timer.h"
 using CANDriver = TWAIDriver;
 #elif defined(PLATFORM_RP2)
-#include "CAN2040Driver.h"
 #include <pico/time.h>
 #include <pico/unique_id.h>
+#if defined(CAN_MCP251XFD)
+#include "MCP251XFDDriver.h"
+using CANDriver = MCP251XFDDriver;
+#else
+#include "CAN2040Driver.h"
 using CANDriver = CAN2040Driver;
+#endif
 #endif
 
 // ArduPilot's MAVLink-over-CAN needs a fixed node id (CAN_Dx_UC_S1_NOD)
@@ -154,7 +159,7 @@ void DroneCANNode::service()
     }
 
 #if defined(HAS_DRONECAN_FW_UPDATE)
-    fwUpdate.service(&canard, now);
+    fwUpdate.service(&canard, now, peerFd);
 #endif
 
     if (serverNodeId() == 0 || !busActive())
@@ -202,9 +207,9 @@ void DroneCANNode::sendRC()
     if (!fresh)
         return;
 
-    const uint32_t len = dronecan_sensors_rc_RCInput_encode(&scratch.rcInput, encodeBuf);
+    const uint32_t len = dronecan_sensors_rc_RCInput_encode(&scratch.rcInput, encodeBuf TAO_ARG(peerFd));
     canardBroadcast(&canard, DRONECAN_SENSORS_RC_RCINPUT_SIGNATURE, DRONECAN_SENSORS_RC_RCINPUT_ID,
-                    &rcInputTransferId, CANARD_TRANSFER_PRIORITY_HIGH, encodeBuf, len);
+                    &rcInputTransferId, CANARD_TRANSFER_PRIORITY_HIGH, encodeBuf, len CANFD_ARG(peerFd));
     stats.rcSent++;
 }
 
@@ -224,6 +229,9 @@ void DroneCANNode::receiveFrames()
         frame.id = msg.id | CANARD_CAN_FRAME_EFF;
         frame.data_len = msg.dlc;
         memcpy(frame.data, msg.data, msg.dlc);
+#if CANARD_ENABLE_CANFD
+        frame.canfd = msg.fd;
+#endif
         // Reassembly failures (toggle, TID, CRC) mean frames were lost; a missed start is normal when joining mid-transfer
         const int16_t res = canardHandleRxFrame(&canard, &frame, nowUs);
         if (res <= -CANARD_ERROR_RX_WRONG_TOGGLE || res == -CANARD_ERROR_OUT_OF_MEMORY)
@@ -265,6 +273,9 @@ void DroneCANNode::processTxQueue()
         msg.id = frame->id & CANARD_CAN_EXT_ID_MASK;
         msg.dlc = frame->data_len;
         memcpy(msg.data, frame->data, frame->data_len);
+#if CANARD_ENABLE_CANFD
+        msg.fd = frame->canfd;
+#endif
 
         if (!CANDriver::transmit(msg))
             break;  // driver queue full, retry on the next call
@@ -295,9 +306,9 @@ void DroneCANNode::sendNodeStatus()
     uavcan_protocol_NodeStatus status {};
     fillNodeStatus(status);
 
-    const uint32_t len = uavcan_protocol_NodeStatus_encode(&status, encodeBuf);
+    const uint32_t len = uavcan_protocol_NodeStatus_encode(&status, encodeBuf TAO_ARG(peerFd));
     canardBroadcast(&canard, UAVCAN_PROTOCOL_NODESTATUS_SIGNATURE, UAVCAN_PROTOCOL_NODESTATUS_ID,
-                    &nodeStatusTransferId, CANARD_TRANSFER_PRIORITY_LOW, encodeBuf, len);
+                    &nodeStatusTransferId, CANARD_TRANSFER_PRIORITY_LOW, encodeBuf, len CANFD_ARG(peerFd));
 }
 
 void DroneCANNode::handleGetNodeInfo(CanardInstance *ins, CanardRxTransfer *transfer)
@@ -334,10 +345,10 @@ void DroneCANNode::handleGetNodeInfo(CanardInstance *ins, CanardRxTransfer *tran
     }
 
     stats.nodeInfoRequests++;
-    const uint32_t len = uavcan_protocol_GetNodeInfoResponse_encode(&info, encodeBuf);
+    const uint32_t len = uavcan_protocol_GetNodeInfoResponse_encode(&info, encodeBuf TAO_ARG(transfer->canfd));
     canardRequestOrRespond(ins, transfer->source_node_id, UAVCAN_PROTOCOL_GETNODEINFO_SIGNATURE,
                            UAVCAN_PROTOCOL_GETNODEINFO_ID, &transfer->transfer_id, transfer->priority,
-                           CanardResponse, encodeBuf, len);
+                           CanardResponse, encodeBuf, len CANFD_ARG(transfer->canfd));
 }
 
 void DroneCANNode::handleTunnel(CanardRxTransfer *transfer)
@@ -375,9 +386,9 @@ void DroneCANNode::sendTunnel()
     tunnel.buffer.len = std::min<uint32_t>(rxToFc.size(), DRONECAN_TUNNEL_MAX_PAYLOAD);
     rxToFc.pop(tunnel.buffer.data, tunnel.buffer.len);
 
-    const uint32_t len = uavcan_tunnel_Targetted_encode(&tunnel, encodeBuf);
+    const uint32_t len = uavcan_tunnel_Targetted_encode(&tunnel, encodeBuf TAO_ARG(peerFd));
     canardBroadcast(&canard, UAVCAN_TUNNEL_TARGETTED_SIGNATURE, UAVCAN_TUNNEL_TARGETTED_ID,
-                    &tunnelTransferId, CANARD_TRANSFER_PRIORITY_MEDIUM, encodeBuf, len);
+                    &tunnelTransferId, CANARD_TRANSFER_PRIORITY_MEDIUM, encodeBuf, len CANFD_ARG(peerFd));
 }
 
 bool DroneCANNode::shouldAcceptTransfer(uint64_t *outSignature, uint16_t dataTypeId, CanardTransferType transferType)
@@ -409,6 +420,10 @@ bool DroneCANNode::shouldAcceptTransfer(uint64_t *outSignature, uint16_t dataTyp
 
 void DroneCANNode::onTransferReceived(CanardInstance *ins, CanardRxTransfer *transfer)
 {
+#if CANARD_ENABLE_CANFD
+    // Only the FC's (or file server's) transfers pass the filter: send in whichever format it last used
+    peerFd = transfer->canfd;
+#endif
     if (transfer->transfer_type == CanardTransferTypeRequest && transfer->data_type_id == UAVCAN_PROTOCOL_GETNODEINFO_ID)
     {
         handleGetNodeInfo(ins, transfer);
@@ -442,10 +457,10 @@ void DroneCANNode::handleBeginFirmwareUpdate(CanardInstance *ins, CanardRxTransf
     uavcan_protocol_file_BeginFirmwareUpdateResponse resp {};
     resp.error = fwUpdate.begin(fileServer, req.image_file_remote_path, connectionState == connected, millis());
 
-    const uint32_t len = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&resp, encodeBuf);
+    const uint32_t len = uavcan_protocol_file_BeginFirmwareUpdateResponse_encode(&resp, encodeBuf TAO_ARG(transfer->canfd));
     canardRequestOrRespond(ins, transfer->source_node_id, UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_SIGNATURE,
                            UAVCAN_PROTOCOL_FILE_BEGINFIRMWAREUPDATE_ID, &transfer->transfer_id, transfer->priority,
-                           CanardResponse, encodeBuf, len);
+                           CanardResponse, encodeBuf, len CANFD_ARG(transfer->canfd));
 }
 #endif
 

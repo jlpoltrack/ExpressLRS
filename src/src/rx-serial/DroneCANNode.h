@@ -102,7 +102,10 @@ private:
 
     // Everything below is only touched from the CAN context
     CanardInstance canard {};
-    uint8_t canardPool[4096] __attribute__((aligned(8)));
+    // CAN FD makes every libcanard block 128 bytes rather than 32, a queued classic frame included
+    uint8_t canardPool[CANARD_ENABLE_CANFD ? 16384 : 4096] __attribute__((aligned(8)));
+    // The FC sends CAN FD, so we do too (always false without CANARD_ENABLE_CANFD)
+    bool peerFd = false;
     uint8_t encodeBuf[DRONECAN_BUF_SIZE];
     // Decode/encode scratch, handlers run one at a time from service()
     union {

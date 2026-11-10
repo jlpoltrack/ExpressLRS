@@ -6,6 +6,8 @@ ESP32 and RP2350 receivers. Connect a CAN transceiver to the `can_rx`/`can_tx` p
 
 On ESP32 the TWAI controller is used (`TWAIDriver`) and the node runs in the main loop. On RP2350 CAN is done in software on PIO2 by [can2040](https://github.com/KevinOConnor/can2040) (`CAN2040Driver`). The whole node runs on core 1: the PIO IRQ, libcanard and every DroneCAN message (`DroneCANNode`), so the radio code on core 0 cannot delay it. Only `SerialDroneCAN`, the MAVLink side, runs on core 0, and it exchanges RC and tunnel bytes with core 1 through lock-free rings. Core 1 is halted while the config is written to flash, so CAN frames go unacknowledged for that time and the FC resends them.
 
+The `_CANFD_` RP2350 firmware uses an MCP251863 (or MCP2518FD) on SPI instead (`MCP251XFDDriver`, [mcp251xfd-pico](https://github.com/jlpoltrack/mcp251xfd-pico)), on the layout's `can_sck`, `can_mosi`, `can_miso`, `can_cs` and `can_int` pins, which must be on the other SPI block from the radio. The chip needs its own 40 MHz clock. It runs at 1 Mbit/s nominal and 4 Mbit/s data (`CAN_P1_FDBITRATE` 4), and the receiver answers in whatever format the FC last used, so it works with `CAN_D1_UC_OPTION` bit 2 (CAN FD) set or clear.
+
 ArduPilot parameters, shown for the first CAN port and driver:
 
 | Parameter | Value | Notes |

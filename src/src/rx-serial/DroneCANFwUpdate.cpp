@@ -99,23 +99,23 @@ void DroneCANFwUpdate::fail(const char *why)
     pending = false;
 }
 
-void DroneCANFwUpdate::sendRead(CanardInstance *canard, uint32_t nowMs)
+void DroneCANFwUpdate::sendRead(CanardInstance *canard, uint32_t nowMs, bool canfd)
 {
     uavcan_protocol_file_ReadRequest req {};
     req.offset = offset;
     req.path = path;
-    const uint32_t len = uavcan_protocol_file_ReadRequest_encode(&req, requestBuf);
+    const uint32_t len = uavcan_protocol_file_ReadRequest_encode(&req, requestBuf TAO_ARG(canfd));
 
     const uint8_t id = transferId;
     if (canardRequestOrRespond(canard, server, UAVCAN_PROTOCOL_FILE_READ_SIGNATURE, UAVCAN_PROTOCOL_FILE_READ_ID,
-                               &transferId, CANARD_TRANSFER_PRIORITY_MEDIUM, CanardRequest, requestBuf, len) < 0)
+                               &transferId, CANARD_TRANSFER_PRIORITY_MEDIUM, CanardRequest, requestBuf, len CANFD_ARG(canfd)) < 0)
         return;  // TX queue full, retried on the next call until the deadline
     pendingTransferId = id;
     pending = true;
     sentMs = nowMs;
 }
 
-void DroneCANFwUpdate::service(CanardInstance *canard, uint32_t nowMs)
+void DroneCANFwUpdate::service(CanardInstance *canard, uint32_t nowMs, bool canfd)
 {
     if (state != FETCHING)
         return;
@@ -128,7 +128,7 @@ void DroneCANFwUpdate::service(CanardInstance *canard, uint32_t nowMs)
     if (pending && nowMs - sentMs > READ_TIMEOUT_MS)
         pending = false;
     if (!pending)
-        sendRead(canard, nowMs);
+        sendRead(canard, nowMs, canfd);
 }
 
 void DroneCANFwUpdate::onReadResponse(const CanardRxTransfer *transfer, const uavcan_protocol_file_ReadResponse &resp, uint32_t nowMs)

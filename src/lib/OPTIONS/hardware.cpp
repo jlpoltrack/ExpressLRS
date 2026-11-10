@@ -25,6 +25,11 @@ typedef enum {
     X(HARDWARE_serial1_tx, "serial1_tx", INT) \
     X(HARDWARE_can_rx, "can_rx", INT) \
     X(HARDWARE_can_tx, "can_tx", INT) \
+    X(HARDWARE_can_sck, "can_sck", INT) \
+    X(HARDWARE_can_mosi, "can_mosi", INT) \
+    X(HARDWARE_can_miso, "can_miso", INT) \
+    X(HARDWARE_can_cs, "can_cs", INT) \
+    X(HARDWARE_can_int, "can_int", INT) \
     X(HARDWARE_radio_busy, "radio_busy", INT) \
     X(HARDWARE_radio_busy_2, "radio_busy_2", INT) \
     X(HARDWARE_radio_dio0, "radio_dio0", INT) \

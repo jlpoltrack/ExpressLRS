@@ -5,6 +5,12 @@
 #define GPIO_PIN_SERIAL1_TX hardware_pin(HARDWARE_serial1_tx)
 #define GPIO_PIN_CAN_RX hardware_pin(HARDWARE_can_rx)
 #define GPIO_PIN_CAN_TX hardware_pin(HARDWARE_can_tx)
+// MCP251863 CAN FD controller on SPI
+#define GPIO_PIN_CAN_SCK hardware_pin(HARDWARE_can_sck)
+#define GPIO_PIN_CAN_MOSI hardware_pin(HARDWARE_can_mosi)
+#define GPIO_PIN_CAN_MISO hardware_pin(HARDWARE_can_miso)
+#define GPIO_PIN_CAN_CS hardware_pin(HARDWARE_can_cs)
+#define GPIO_PIN_CAN_INT hardware_pin(HARDWARE_can_int)
 
 // Radio
 #define GPIO_PIN_BUSY hardware_pin(HARDWARE_radio_busy)

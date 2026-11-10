@@ -10,6 +10,11 @@ typedef enum {
     HARDWARE_serial1_tx,
     HARDWARE_can_rx,
     HARDWARE_can_tx,
+    HARDWARE_can_sck,
+    HARDWARE_can_mosi,
+    HARDWARE_can_miso,
+    HARDWARE_can_cs,
+    HARDWARE_can_int,
 
     // Radio
     HARDWARE_radio_busy,
