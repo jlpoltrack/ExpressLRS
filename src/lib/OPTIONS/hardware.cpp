@@ -23,6 +23,8 @@ typedef enum {
     X(HARDWARE_serial_tx, "serial_tx", INT) \
     X(HARDWARE_serial1_rx, "serial1_rx", INT) \
     X(HARDWARE_serial1_tx, "serial1_tx", INT) \
+    X(HARDWARE_can_rx, "can_rx", INT) \
+    X(HARDWARE_can_tx, "can_tx", INT) \
     X(HARDWARE_radio_busy, "radio_busy", INT) \
     X(HARDWARE_radio_busy_2, "radio_busy_2", INT) \
     X(HARDWARE_radio_dio0, "radio_dio0", INT) \

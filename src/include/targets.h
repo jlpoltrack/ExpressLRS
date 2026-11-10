@@ -39,6 +39,8 @@
 #if defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
 // A second hardware UART is free for the Serial1 output protocols
 #define HAS_SERIAL1
+// MAVLink over DroneCAN: TWAI on ESP32, can2040 on RP2
+#define HAS_DRONECAN
 #endif
 
 /*

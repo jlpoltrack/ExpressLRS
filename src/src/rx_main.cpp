@@ -24,6 +24,7 @@
 #include "rx-serial/SerialHoTT_TLM.h"
 #include "rx-serial/SerialScorpion_TLM.h"
 #include "rx-serial/SerialMavlink.h"
+#include "rx-serial/SerialDroneCAN.h"
 #include "rx-serial/SerialTramp.h"
 #include "rx-serial/SerialSmartAudio.h"
 #include "rx-serial/SerialDisplayport.h"
@@ -982,7 +983,7 @@ static void ICACHE_RAM_ATTR ProcessRfPacket_DataUl(OTA_Packet_s const * const ot
         packageIndex = otaPktPtr->full.data_ul.packageIndex;
         payload = otaPktPtr->full.data_ul.payload;
         dataLen = sizeof(otaPktPtr->full.data_ul.payload);
-        if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
+        if (isMavlinkProtocol(config.GetSerialProtocol()))
         {
             DataDlSender.ConfirmCurrentPayload(otaPktPtr->full.data_ul.stubbornAck);
         }
@@ -992,7 +993,7 @@ static void ICACHE_RAM_ATTR ProcessRfPacket_DataUl(OTA_Packet_s const * const ot
         packageIndex = otaPktPtr->std.data_ul.packageIndex;
         payload = otaPktPtr->std.data_ul.payload;
         dataLen = sizeof(otaPktPtr->std.data_ul.payload);
-        if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
+        if (isMavlinkProtocol(config.GetSerialProtocol()))
         {
             DataDlSender.ConfirmCurrentPayload(otaPktPtr->std.data_ul.stubbornAck);
         }
@@ -1076,9 +1077,13 @@ static bool ICACHE_RAM_ATTR ProcessRfPacket_SYNC(uint32_t const now, OTA_Sync_s 
 
     if (otaSync->otaProtocol == TX_MAVLINK_MODE)
     {
-        config.SetSerialProtocol(PROTOCOL_MAVLINK);
+        // Keep MAVLink over DroneCAN if selected, otherwise switch to MAVLink over UART
+        if (!isMavlinkProtocol(config.GetSerialProtocol()))
+        {
+            config.SetSerialProtocol(PROTOCOL_MAVLINK);
+        }
     }
-    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
+    else if (isMavlinkProtocol(config.GetSerialProtocol()))
     {
         config.SetSerialProtocol(PROTOCOL_CRSF);
     }
@@ -1283,7 +1288,7 @@ void DataUlReceiveComplete()
         break;
     case MSP_ELRS_MAVLINK_TLM: // 0xFD
         // raw mavlink data
-        if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
+        if (isMavlinkProtocol(config.GetSerialProtocol()))
         {
             ((SerialMavlink *)serialIO)->forwardMessage(DataUlBuffer);
         }
@@ -1337,7 +1342,7 @@ static void setupSerial()
         sumdSerialOutput = true;
         serialBaud = 115200;
     }
-    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
+    else if (isMavlinkProtocol(config.GetSerialProtocol()))
     {
         mavlinkSerialOutput = true;
         serialBaud = 460800;
@@ -1376,6 +1381,8 @@ static void setupSerial()
     SerialMode mode = (sbusSerialOutput || sumdSerialOutput)  ? SERIAL_TX_ONLY : SERIAL_FULL;
     Serial.begin(serialBaud, serialConfig, mode, -1, invert);
 #elif defined(PLATFORM_ESP32) || defined(PLATFORM_RP2)
+    // MAVLink over DroneCAN drives a CAN transceiver instead of the UART
+    const bool droneCanSerial = config.GetSerialProtocol() == PROTOCOL_MAVLINK_DRONECAN;
     uint32_t serialConfig = SERIAL_8N1;
 
     if(sbusSerialOutput)
@@ -1396,7 +1403,10 @@ static void setupSerial()
     #endif
     // ARDUINO_CORE_INVERT_FIX PT2 end
 
-    SERIAL_PROTOCOL_TX.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
+    if (!droneCanSerial)
+    {
+        SERIAL_PROTOCOL_TX.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
+    }
 #endif
 
     if (firmwareOptions.is_airport)
@@ -1411,6 +1421,20 @@ static void setupSerial()
     {
         serialIO = new SerialSUMD(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
+#if defined(HAS_DRONECAN)
+    else if (droneCanSerial)
+    {
+        int8_t canRxPin = GPIO_PIN_CAN_RX;
+        int8_t canTxPin = GPIO_PIN_CAN_TX;
+        if (canRxPin == UNDEF_PIN || canTxPin == UNDEF_PIN)
+        {
+            // No dedicated CAN pins, the transceiver is on the serial pins (UART0 defaults as in Serial.begin())
+            canRxPin = (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN) ? U0RXD_GPIO_NUM : GPIO_PIN_RCSIGNAL_RX;
+            canTxPin = (GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN) ? U0TXD_GPIO_NUM : GPIO_PIN_RCSIGNAL_TX;
+        }
+        serialIO = new SerialDroneCAN(canTxPin, canRxPin);
+    }
+#endif
     else if (mavlinkSerialOutput)
     {
         serialIO = new SerialMavlink(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
@@ -2214,7 +2238,7 @@ void loop()
         DataDlSender.SetDataToTransmit(DataDlBuffer, nextPlayloadSize);
     }
 
-    if (config.GetSerialProtocol() == PROTOCOL_MAVLINK && !DataDlSender.IsActive() && ((SerialMavlink *)serialIO)->GetNextPayload(&nextPlayloadSize, DataDlBuffer))
+    if (isMavlinkProtocol(config.GetSerialProtocol()) && !DataDlSender.IsActive() && ((SerialMavlink *)serialIO)->GetNextPayload(&nextPlayloadSize, DataDlBuffer))
     {
         DataDlSender.SetDataToTransmit(DataDlBuffer, nextPlayloadSize);
     }
