@@ -13,15 +13,22 @@
 #define READ_TIMEOUT_MS     1000
 #define READ_DEADLINE_MS    6000
 
-// Sector 0 is held in RAM and written last: the bootrom only boots an image whose sector 0 holds a
-// valid boot block, so a partial update never boots
+// Sector 0 is held in RAM and written last: the bootrom only boots an image whose sector 0 is valid
+// (the RP2350's boot block, the RP2040's second-stage bootloader), so a partial update never boots
 #define HEAD_LEN            FLASH_SECTOR_SIZE
 // This image's own vector table, at the same offset in any image built with the same core. It starts
 // sector 3, so a bad one is only caught once flash has been touched
 extern uint32_t __vectors[];
 #define APP_VECTORS         ((uint32_t)__vectors - XIP_BASE)
+#if defined(PICO_RP2350)
+#define CHIP_NAME           "RP2350"
 // The SDK's boot/picobin.h is not on the Arduino-Pico include path
 #define PICOBIN_BLOCK_MARKER_START 0xFFFFDED3u
+#else
+#define CHIP_NAME           "RP2040"
+// The bootrom checks a CRC32 at the end of the 256-byte second-stage bootloader
+#define BOOT2_LEN           256
+#endif
 
 // The image ends before the LittleFS partition, which holds options.json and hardware.json
 extern uint8_t _FS_start;
@@ -30,8 +37,8 @@ extern uint8_t _FS_start;
 static uint8_t head[HEAD_LEN];
 static uint8_t page[FLASH_PAGE_SIZE];
 
-// Interrupts are off so core 0's flash writes (config, LittleFS), which idle this core through a
-// doorbell IRQ, wait for this one to finish instead of interleaving with it
+// Interrupts are off so core 0's flash writes (config, LittleFS), which idle this core through an
+// IRQ, wait for this one to finish instead of interleaving with it
 static bool flashWritePage(uint32_t addr, const uint8_t *data)
 {
     const uint32_t save = save_and_disable_interrupts();
@@ -50,6 +57,7 @@ static void flashEraseSector(uint32_t addr)
     restore_interrupts(save);
 }
 
+#if defined(PICO_RP2350)
 // An RP2350 Arm image has a boot block in sector 0
 static bool headValid()
 {
@@ -62,6 +70,22 @@ static bool headValid()
     }
     return false;
 }
+#else
+// An RP2040 image starts with a second-stage bootloader whose CRC32 (MPEG-2 variant) the bootrom checks
+static bool headValid()
+{
+    uint32_t crc = 0xFFFFFFFF;
+    for (uint32_t i = 0; i < BOOT2_LEN - 4; ++i)
+    {
+        crc ^= (uint32_t)head[i] << 24;
+        for (int bit = 0; bit < 8; ++bit)
+            crc = (crc & 0x80000000) ? (crc << 1) ^ 0x04C11DB7 : crc << 1;
+    }
+    uint32_t stored;
+    memcpy(&stored, &head[BOOT2_LEN - 4], 4);
+    return crc == stored;
+}
+#endif
 
 static bool vectorsValid(const uint8_t *vectors)
 {
@@ -171,7 +195,7 @@ bool DroneCANFwUpdate::acceptData(const uint8_t *data, uint32_t len)
             // Last chance to back out with the old firmware intact
             if (!headValid())
             {
-                fail("not an RP2350 image");
+                fail("not an " CHIP_NAME " image");
                 return false;
             }
             flashEraseSector(0);
@@ -213,7 +237,7 @@ bool DroneCANFwUpdate::finish()
     }
 
     // Sector 0, erased when the update started, makes the image bootable again. Top down, so the pages the
-    // bootrom needs (vectors in page 0, block loop in page 1) are the last written
+    // bootrom needs (RP2350 block loop in pages 0-1, RP2040 boot2 in page 0) are the last written
     const uint32_t save = save_and_disable_interrupts();
     for (uint32_t addr = FLASH_SECTOR_SIZE; addr > 0; addr -= FLASH_PAGE_SIZE)
         flash_range_program(addr - FLASH_PAGE_SIZE, &head[addr - FLASH_PAGE_SIZE], FLASH_PAGE_SIZE);

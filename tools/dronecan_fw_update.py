@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Update an ELRS RP2350 receiver's firmware over DroneCAN and validate it.
+Update an ELRS RP2 (RP2040 or RP2350) receiver's firmware over DroneCAN and validate it.
 
 Runs a DroneCAN node on the FC's CAN bus through MAVLink CAN forwarding (pydronecan 'mavcan:'), serves the image
 with uavcan.protocol.file.Read, starts the update with BeginFirmwareUpdate, waits for the receiver to reboot, and
@@ -35,25 +35,27 @@ IMAGE_PATH = 'fw.bin'
 UF2_MAGIC = (0x0A324655, 0x9E5D5157, 0x0AB16F30)
 UF2_FLAG_NOT_MAIN_FLASH = 0x1
 UF2_FLAG_FAMILY_ID = 0x2000
+UF2_FAMILY_RP2040 = 0xE48BFF56
 UF2_FAMILY_RP2350_ARM_S = 0xE48BFF59
+UF2_FAMILIES = (UF2_FAMILY_RP2040, UF2_FAMILY_RP2350_ARM_S)
 FLASH_END = XIP_BASE + 0x1000000
 
 
 def uf2_to_image(data):
-    """Flatten the RP2350 Arm flash blocks of a UF2 into a binary image starting at XIP_BASE, gaps as erased flash."""
+    """Flatten the RP2040 or RP2350 Arm flash blocks of a UF2 into a binary image starting at XIP_BASE, gaps as erased flash."""
     blocks = {}
     for i in range(0, len(data) - 511, 512):
         m0, m1, flags, addr, size, _, _, family = struct.unpack_from('<8I', data, i)
         if (m0, m1) != UF2_MAGIC[:2] or struct.unpack_from('<I', data, i + 508)[0] != UF2_MAGIC[2]:
             sys.exit(f'FAIL: bad UF2 block at offset {i}')
         # Skips e.g. the RP2350-E10 workaround block, which uses the 'absolute' family
-        if flags & UF2_FLAG_NOT_MAIN_FLASH or (flags & UF2_FLAG_FAMILY_ID and family != UF2_FAMILY_RP2350_ARM_S):
+        if flags & UF2_FLAG_NOT_MAIN_FLASH or (flags & UF2_FLAG_FAMILY_ID and family not in UF2_FAMILIES):
             continue
         if not XIP_BASE <= addr < FLASH_END:
             continue
         blocks[addr - XIP_BASE] = data[i + 32:i + 32 + size]
     if not blocks:
-        sys.exit('FAIL: no RP2350 Arm flash blocks in the UF2')
+        sys.exit('FAIL: no RP2040 or RP2350 Arm flash blocks in the UF2')
     end = max(off + len(b) for off, b in blocks.items())
     image = bytearray(b'\xff' * end)
     for off, b in blocks.items():

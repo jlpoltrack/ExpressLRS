@@ -4,6 +4,7 @@ import subprocess
 # picotool infers the UF2 family from an ELF, but a raw binary carries no architecture
 # information and it silently falls back to the RP2040 family, which BOOTSEL rejects.
 MCU_FAMILY = {
+    'rp2040': 'rp2040',
     'rp2350': 'rp2350-arm-s',
 }
 

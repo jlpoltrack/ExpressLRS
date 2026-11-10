@@ -13,10 +13,14 @@ SerialUART *RP2Serial1Uart = &Serial2;
 static constexpr uint64_t UART_TX_PINS[2] = {
     __bitset({0, 2, 12, 14, 16, 18, 28, 30, 32, 34, 44, 46}),
     __bitset({4, 6, 8, 10, 20, 22, 24, 26, 36, 38, 40, 42})};
-#else // RP2350A
+#elif defined(PICO_RP2350) // RP2350A
 static constexpr uint64_t UART_TX_PINS[2] = {
     __bitset({0, 2, 12, 14, 16, 18, 28}),
     __bitset({4, 6, 8, 10, 20, 22, 24, 26})};
+#else // RP2040: no UART on the CTS/RTS pins
+static constexpr uint64_t UART_TX_PINS[2] = {
+    __bitset({0, 12, 16, 28}),
+    __bitset({4, 8, 20, 24})};
 #endif
 
 static pin_size_t uartPin(int8_t pin, uint64_t validMask)

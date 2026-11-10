@@ -26,6 +26,7 @@ LIBRARY_EXCLUSIONS = {
     "RX": {
         "*": ("ADC","Backpack","BLE","GSENSOR","Handset","POWER_DETECT","SCREEN","tx-crsf","VTX"),
         "esp8266": ("dronecan-dsdl","VTXSPI"),
+        "rp2040": ("VTXSPI","THERMAL","SerialUpdate","WIFI"),
         "rp2350": ("VTXSPI","THERMAL","SerialUpdate","WIFI"),
     }
 }

@@ -23,9 +23,10 @@ volatile int32_t hwTimer::FreqOffset = 0;
 
 static alarm_id_t alarmId = -1;
 static void (*timerIsr)() = nullptr;
-static volatile int64_t nextAlarmTicks = 0;
+// 32-bit: 64-bit divides are a slow library call on the RP2040's M0+ (no 64-bit hardware divide)
+static volatile int32_t nextAlarmTicks = 0;
 // Sub-microsecond part of the schedule carried between alarms, the hardware alarm is 1us resolution
-static volatile int64_t tickRemainder = 0;
+static volatile int32_t tickRemainder = 0;
 // When the armed alarm is due, to detect a schedule that fell behind during a stall
 static uint64_t targetUs = 0;
 
@@ -38,9 +39,9 @@ static int64_t ICACHE_RAM_ATTR alarmCallback(alarm_id_t id, void *user_data)
     if (!hwTimer::running)
         return 0;
     // At least 1us, returning 0 would stop the alarm for good
-    const int64_t ticks = (nextAlarmTicks > HWTIMER_TICKS_PER_US ? nextAlarmTicks : HWTIMER_TICKS_PER_US) + tickRemainder;
-    tickRemainder = ticks % HWTIMER_TICKS_PER_US;
-    const int64_t us = ticks / HWTIMER_TICKS_PER_US;
+    const int32_t ticks = (nextAlarmTicks > HWTIMER_TICKS_PER_US ? nextAlarmTicks : HWTIMER_TICKS_PER_US) + tickRemainder;
+    const int32_t us = ticks / HWTIMER_TICKS_PER_US;
+    tickRemainder = ticks - us * HWTIMER_TICKS_PER_US;
     targetUs += us;
     const uint64_t now = time_us_64();
     if (targetUs > now)
@@ -112,7 +113,7 @@ void ICACHE_RAM_ATTR hwTimer::callback()
     callbackTock();
     nextAlarmTicks = HWtimerInterval;
 #else
-    int64_t nextInterval = (HWtimerInterval >> 1) + FreqOffset;
+    int32_t nextInterval = (HWtimerInterval >> 1) + FreqOffset;
     if (isTick)
     {
         callbackTick();
