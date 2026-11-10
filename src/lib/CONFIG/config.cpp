@@ -9,6 +9,8 @@
 
 #if defined(PLATFORM_ESP32)
 #include <mbedtls/md5.h> // for SetBindPhrase()
+#elif defined(PLATFORM_RP2)
+#include <bearssl/bearssl_hash.h> // for SetBindPhrase()
 #endif
 
 void BindphraseConfigurable::SetBindPhrase(uint8_t *phrase, size_t phraseLen)
@@ -34,6 +36,13 @@ void BindphraseConfigurable::SetBindPhrase(uint8_t *phrase, size_t phraseLen)
         mbedtls_md5_update_ret(&md5, &BIND_KEY[sizeof(BIND_KEY)-2], 1);
         mbedtls_md5_finish_ret(&md5, UID_md5);
         mbedtls_md5_free(&md5);
+#elif defined(PLATFORM_RP2)
+        br_md5_context md5;
+        br_md5_init(&md5);
+        br_md5_update(&md5, BIND_KEY, sizeof(BIND_KEY)-1);
+        br_md5_update(&md5, phrase, phraseLen);
+        br_md5_update(&md5, &BIND_KEY[sizeof(BIND_KEY)-2], 1);
+        br_md5_out(&md5, UID_md5);
 #endif
     }
 
@@ -1289,7 +1298,7 @@ RxConfig::SetDefaults(bool commit)
             {
                 mode = somSerial;
             }
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
             else if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SERIAL1_RX)
             {
                 mode = somSerial1RX;
@@ -1388,7 +1397,7 @@ void RxConfig::SetSerialProtocol(eSerialProtocol serialProtocol)
     }
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 void RxConfig::SetSerial1Protocol(eSerial1Protocol serialProtocol)
 {
     if (m_config.serial1Protocol != serialProtocol)

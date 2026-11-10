@@ -13,7 +13,7 @@
 #define RX_HAS_SERIAL1 (GPIO_PIN_SERIAL1_TX != UNDEF_PIN || OPT_HAS_SERVO_OUTPUT)
 
 extern void reconfigureSerial();
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
 extern void reconfigureSerial1();
 #endif
 extern bool BindingModeRequest;
@@ -39,13 +39,47 @@ static selectionParameter luaSerialProtocol = {
     STR_EMPTYSPACE
 };
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
+#if defined(PLATFORM_RP2)
+// No half-duplex UART on RP2, so HoTT, Tramp and SmartAudio are left out and the Lua index is mapped to the enum
+static const eSerial1Protocol serial1LuaProtocols[] = {
+  PROTOCOL_SERIAL1_OFF, PROTOCOL_SERIAL1_CRSF, PROTOCOL_SERIAL1_INVERTED_CRSF, PROTOCOL_SERIAL1_SBUS,
+  PROTOCOL_SERIAL1_INVERTED_SBUS, PROTOCOL_SERIAL1_SUMD, PROTOCOL_SERIAL1_DJI_RS_PRO,
+  PROTOCOL_SERIAL1_MSP_DISPLAYPORT, PROTOCOL_SERIAL1_GPS, PROTOCOL_SERIAL1_SCORPION_TLM};
+#define SERIAL1_PROTOCOL_OPTIONS "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;DisplayPort;GPS;Scorpion"
+#else
+#define SERIAL1_PROTOCOL_OPTIONS "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS;Scorpion"
+#endif
+
 static selectionParameter luaSerial1Protocol = {
     {"Protocol2", CRSF_TEXT_SELECTION},
     0, // value
-  "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS;Scorpion",
+  SERIAL1_PROTOCOL_OPTIONS,
     STR_EMPTYSPACE
 };
+
+static eSerial1Protocol serial1ProtocolFromLua(uint8_t index)
+{
+#if defined(PLATFORM_RP2)
+  return index < ARRAY_SIZE(serial1LuaProtocols) ? serial1LuaProtocols[index] : PROTOCOL_SERIAL1_OFF;
+#else
+  return (eSerial1Protocol)index;
+#endif
+}
+
+static uint8_t serial1ProtocolToLua(eSerial1Protocol protocol)
+{
+#if defined(PLATFORM_RP2)
+  for (uint8_t i = 0; i < ARRAY_SIZE(serial1LuaProtocols); i++)
+  {
+    if (serial1LuaProtocols[i] == protocol)
+      return i;
+  }
+  return 0;
+#else
+  return protocol;
+#endif
+}
 #endif
 
 static selectionParameter luaSBUSFailsafeMode = {
@@ -213,7 +247,7 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
 
     bool sclAssigned = false;
     bool sdaAssigned = false;
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     bool serial1rxAssigned = false;
     bool serial1txAssigned = false;
 #endif
@@ -225,10 +259,12 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
     const char *i2c_SCL      = ";I2C SCL;";
     const char *i2c_SDA      = ";;I2C SDA";
     const char *i2c_BOTH     = ";I2C SCL;I2C SDA";
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     const char *serial1_RX   = ";Serial2 RX;";
     const char *serial1_TX   = ";;Serial2 TX";
     const char *serial1_BOTH = ";Serial2 RX;Serial2 TX";
+#endif
+#if defined(PLATFORM_ESP32)
     const char *dshot        = ";DShot;DShot 3D";
 #endif
 
@@ -249,7 +285,7 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
       if (mode == somSDA)
         sdaAssigned = true;
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
       if (mode == somSerial1RX)
         serial1rxAssigned = true;
 
@@ -341,7 +377,7 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
     // nothing to do for unsupported somPwm mode
     strcat(pwmModes, no1Option);
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
     // secondary Serial pins (2 options)
     // ;[SERIAL2 RX] ;[SERIAL2_TX]
     if (!OPT_PWM_OUT_ONLY && (GPIO_PIN_SERIAL1_RX != UNDEF_PIN || GPIO_PIN_SERIAL1_TX != UNDEF_PIN))
@@ -526,11 +562,11 @@ void RXEndpoint::registerParameters()
     }
   });
 
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
   if (RX_HAS_SERIAL1)
   {
     registerParameter(&luaSerial1Protocol, [](propertiesCommon* item, uint8_t arg){
-      config.SetSerial1Protocol((eSerial1Protocol)arg);
+      config.SetSerial1Protocol(serial1ProtocolFromLua(arg));
       if (config.IsModified()) {
         deferExecutionMillis(100, [](){
           reconfigureSerial1();
@@ -622,10 +658,10 @@ static void updateBindModeLabel()
 void RXEndpoint::updateParameters()
 {
   setTextSelectionValue(&luaSerialProtocol, config.GetSerialProtocol());
-#if defined(PLATFORM_ESP32)
+#if defined(HAS_SERIAL1)
   if (RX_HAS_SERIAL1)
   {
-    setTextSelectionValue(&luaSerial1Protocol, config.GetSerial1Protocol());
+    setTextSelectionValue(&luaSerial1Protocol, serial1ProtocolToLua(config.GetSerial1Protocol()));
   }
 #endif
 

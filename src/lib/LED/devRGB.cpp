@@ -23,7 +23,11 @@ static ESP32LedDriverGRB *stripgrb;
 static ESP32LedDriverRGB *striprgb;
 #else
 #include <NeoPixelBus.h>
+#if defined(PLATFORM_RP2)
+#define METHOD NeoWs2812xMethod
+#else
 #define METHOD NeoEsp8266Uart1800KbpsMethod
+#endif
 static NeoPixelBus<NeoGrbFeature, METHOD> *stripgrb;
 static NeoPixelBus<NeoRgbFeature, METHOD> *striprgb;
 #endif

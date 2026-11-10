@@ -26,6 +26,7 @@ LIBRARY_EXCLUSIONS = {
     "RX": {
         "*": ("ADC","Backpack","BLE","GSENSOR","Handset","POWER_DETECT","SCREEN","tx-crsf","VTX"),
         "esp8266": ("VTXSPI",),
+        "rp2350": ("VTXSPI","THERMAL","SerialUpdate","WIFI"),
     }
 }
 
@@ -52,3 +53,4 @@ if excluded_libraries:
     ignored_libraries = config.get("env:" + env["PIOENV"], "lib_ignore", [])
     config.set("env:" + env["PIOENV"], "lib_ignore", list(dict.fromkeys(ignored_libraries + list(excluded_libraries))))
     print("Ignoring libraries for %s/%s: %s" % (target_type, mcu, ", ".join(excluded_libraries)))
+

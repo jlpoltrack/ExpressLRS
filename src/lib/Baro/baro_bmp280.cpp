@@ -1,5 +1,6 @@
 #include "baro_bmp280.h"
 #include <Arduino.h>
+#include <initializer_list>
 #include "logging.h"
 
 void BMP280::initialize()

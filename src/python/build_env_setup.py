@@ -7,6 +7,8 @@ import elrs_helpers
 import BFinitPassthrough
 import ETXinitPassthrough
 import UnifiedConfiguration
+import rp2_uf2
+import rp2_ram_app
 
 def add_target_uploadoption(name: str, desc: str) -> None:
     # Add an upload target 'uploadforce' that forces update if target mismatch
@@ -101,6 +103,12 @@ elif platform in ['espressif32']:
         )
         env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
 
+elif platform in ['raspberrypi']:
+    # The platform uploads firmware.elf, which has no options/hardware layout appended and
+    # leaves the RX with no pin map, so load the UF2 rebuilt from the configured .bin instead.
+    env.Replace(UPLOADCMD='"$UPLOADER" load -v -x "$BUILD_DIR/${PROGNAME}.uf2"')
+    env.Depends(env.Alias("upload"), "$BUILD_DIR/${PROGNAME}.bin")
+
 if "_WIFI" in target_name:
     add_target_uploadoption("uploadconfirm", "Do not upload, just send confirm")
     if "_TX_" in target_name:
@@ -112,13 +120,19 @@ if platform != 'native':
     add_target_uploadoption("uploadforce", "Upload even if target mismatch")
 
 # Remove stale binary so the platform is forced to build a new one and attach options/hardware-layout files
-try:
-    os.remove(env['PROJECT_BUILD_DIR'] + '/' + env['PIOENV'] +'/'+ env['PROGNAME'] + '.bin')
-except FileNotFoundError:
-    None
+# The UF2 goes too, otherwise a failed build leaves behind the bare one the platform makes from the ELF
+for ext in ('.bin', '.uf2'):
+    try:
+        os.remove(env['PROJECT_BUILD_DIR'] + '/' + env['PIOENV'] +'/'+ env['PROGNAME'] + ext)
+    except FileNotFoundError:
+        None
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", UnifiedConfiguration.appendConfiguration)
 if platform in ['espressif8266'] and "_WIFI" in target_name:
     env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", esp_compress.compressFirmware)
+if platform in ['raspberrypi']:
+    rp2_ram_app.runFromRam(env)
+    # Must be registered after appendConfiguration, post-actions run in registration order
+    env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", rp2_uf2.convertToUF2)
 
 def copyBootApp0bin(source, target, env):
     file = os.path.join(env.PioPlatform().get_package_dir("framework-arduinoespressif32"), "tools", "partitions", "boot_app0.bin")
