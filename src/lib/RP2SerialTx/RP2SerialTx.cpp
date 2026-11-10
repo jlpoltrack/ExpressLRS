@@ -3,8 +3,10 @@
 #if defined(PLATFORM_RP2)
 #include <hardware/sync.h>
 
-// Serial is USB CDC on RP2, the CRSF UART is Serial1 (hardware UART0)
+// Serial is USB CDC on RP2, Serial1 is hardware UART0 and Serial2 UART1
 RP2SerialTx SerialTxRing(Serial1, uart0);
+SerialUART *RP2MainUart = &Serial1;
+SerialUART *RP2Serial1Uart = &Serial2;
 
 // Per-UART pin tables, mirroring the core's SerialUART::setTX. RX is always TX plus one.
 #if defined(PICO_RP2350) && !PICO_RP2350A // RP2350B
@@ -33,9 +35,24 @@ void RP2UartBegin(SerialUART &port, unsigned long baud, uint16_t config, int8_t 
     port.begin(baud, config);
 }
 
+static bool routesTo(unsigned uart, int8_t rxPin, int8_t txPin)
+{
+    return uartPin(txPin, UART_TX_PINS[uart]) != UART_PIN_NOT_DEFINED || uartPin(rxPin, UART_TX_PINS[uart] << 1) != UART_PIN_NOT_DEFINED;
+}
+
+void RP2SelectUarts(int8_t rxPin, int8_t txPin)
+{
+    if (!routesTo(0, rxPin, txPin) && routesTo(1, rxPin, txPin))
+    {
+        RP2MainUart = &Serial2;
+        RP2Serial1Uart = &Serial1;
+        SerialTxRing.setPort(Serial2, uart1);
+    }
+}
+
 void RP2SerialTx::begin(unsigned long baud, uint16_t config, int8_t rxPin, int8_t txPin, bool invert)
 {
-    RP2UartBegin(_port, baud, config, rxPin, txPin, invert);
+    RP2UartBegin(*_port, baud, config, rxPin, txPin, invert);
     const uint32_t save = save_and_disable_interrupts();
     _uart = _uartHw;
     _head = _tail = 0;
@@ -49,7 +66,7 @@ void RP2SerialTx::end()
     _uart = nullptr;
     _head = _tail = 0;
     restore_interrupts(save);
-    _port.end();
+    _port->end();
 }
 
 void ICACHE_RAM_ATTR RP2SerialTx::service()

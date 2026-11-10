@@ -136,8 +136,8 @@ uint32_t serialBaud;
 
 #if defined(HAS_SERIAL1)
     #if defined(PLATFORM_RP2)
-    // Serial2 is hardware UART1
-    #define SERIAL1_PROTOCOL_TX Serial2
+    // The UART not taken by the main serial, see RP2SelectUarts()
+    #define SERIAL1_PROTOCOL_TX (*RP2Serial1Uart)
     #else
     #define SERIAL1_PROTOCOL_TX Serial1
     #endif
@@ -152,8 +152,8 @@ uint32_t serialBaud;
 SerialIO *serialIO = nullptr;
 
 #if defined(PLATFORM_RP2)
-#define SERIAL_PROTOCOL_RX Serial1
-#define SERIAL1_PROTOCOL_RX Serial2
+#define SERIAL_PROTOCOL_RX (*RP2MainUart)
+#define SERIAL1_PROTOCOL_RX (*RP2Serial1Uart)
 #else
 #define SERIAL_PROTOCOL_RX Serial
 #define SERIAL1_PROTOCOL_RX Serial1
@@ -2134,6 +2134,10 @@ void setup()
         }
         crsfRouter.addEndpoint(&crsfReceiver);
         crsfRouter.addConnector(&otaConnector);
+#if defined(PLATFORM_RP2)
+        RP2SelectUarts(GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX);
+        serial1_protocol_tx = &(SERIAL1_PROTOCOL_TX);
+#endif
         setupSerial();
         setupSerial1();
 

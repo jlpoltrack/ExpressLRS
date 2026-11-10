@@ -9,12 +9,20 @@
 // left unassigned instead of reaching setRX/setTX, which panic on it
 void RP2UartBegin(SerialUART &port, unsigned long baud, uint16_t config, int8_t rxPin, int8_t txPin, bool invert);
 
+// The main serial takes the UART its pins route to (UART0 if they route to neither) and Serial1 the other.
+// Call once before either is begun; until then the main serial is UART0 (Serial1) and Serial1 is UART1 (Serial2)
+void RP2SelectUarts(int8_t rxPin, int8_t txPin);
+extern SerialUART *RP2MainUart;
+extern SerialUART *RP2Serial1Uart;
+
 // Non-blocking TX for a RP2 UART. SerialUART::write() spins ~24us per byte on a full FIFO and the callers
 // are the hwTimer ISR and sendQueuedData() with IRQs off, so bytes go into a ring that drains opportunistically
 class RP2SerialTx final : public Stream
 {
 public:
-    RP2SerialTx(SerialUART &port, uart_inst_t *uart) : _port(port), _uartHw(uart) {}
+    RP2SerialTx(SerialUART &port, uart_inst_t *uart) : _port(&port), _uartHw(uart) {}
+    // Only while ended
+    void setPort(SerialUART &port, uart_inst_t *uart) { _port = &port; _uartHw = uart; }
 
     // Same arguments as the ESP32 HardwareSerial::begin, so callers need not care
     void begin(unsigned long baud, uint16_t config, int8_t rxPin, int8_t txPin, bool invert);
@@ -43,8 +51,8 @@ private:
     static constexpr uint16_t SERVICE_MAX_BYTES = 16;
     static constexpr uint16_t PRODUCER_CHUNK = 32;
 
-    SerialUART &_port;
-    uart_inst_t *const _uartHw;
+    SerialUART *_port;
+    uart_inst_t *_uartHw;
     uart_inst_t *_uart = nullptr;
     volatile uint16_t _head = 0;
     volatile uint16_t _tail = 0;
