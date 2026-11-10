@@ -1,0 +1,34 @@
+{
+    "diy": {
+        "rx_dual": {
+            "rp2350-lr2021f33": {
+                "product_name": "DIY RP2350 NiceRF LR2021F33 RX",
+                "lua_name": "RP2350 LR2021",
+                "layout_file": "DIY RP2350 LR2021F33.json",
+                "platform": "rp2350",
+                "firmware": "Unified_RP2350_LR2021_RX"
+            },
+            "rp2040-lr2021f33": {
+                "product_name": "DIY Pico NiceRF LR2021F33 RX",
+                "lua_name": "Pico LR2021",
+                "layout_file": "DIY RP2040 LR2021F33.json",
+                "platform": "rp2040",
+                "firmware": "Unified_RP2040_LR2021_RX"
+            },
+            "rp-mlrs-dual-can": {
+                "product_name": "RP-mLRS-DUAL CAN RX",
+                "lua_name": "RP-mLRS CAN",
+                "layout_file": "RP-mLRS-DUAL CAN.json",
+                "platform": "rp2350",
+                "firmware": "Unified_RP2350_LR2021_RX"
+            },
+            "rp-mlrs-dual-canfd": {
+                "product_name": "RP-mLRS-DUAL CANFD RX",
+                "lua_name": "RP-mLRS CANFD",
+                "layout_file": "RP-mLRS-DUAL CANFD.json",
+                "platform": "rp2350",
+                "firmware": "Unified_RP2350_LR2021_CANFD_RX"
+            }
+        }
+    }
+}
