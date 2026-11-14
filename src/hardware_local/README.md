@@ -16,7 +16,7 @@ interactive menu. To upstream a product, move its entry and layout file into the
   10, 25, 50, 100, 250, 500 and 1000 mW, from mLRS's power-meter calibration of this module (915 MHz for sub-GHz).
   2.4 GHz at 10 mW runs at about 12 dBm, the module's minimum.
 
-## RP-mLRS-DUAL CAN / CANFD RX
+## RP CAN / RP CANFD RX
 
 **Not yet validated on hardware**: both assemblies (can2040 and MCP251863) still need testing once boards are built.
 
@@ -26,5 +26,5 @@ interactive menu. To upstream a product, move its entry and layout file into the
 - `rp-mlrs-dual-canfd` (`Unified_RP2350_LR2021_CANFD_RX`): MCP251863 on SPI0, `can_sck`/`can_mosi`/`can_miso`/`can_cs` GPIO2/3/4/5, `can_int` GPIO1, own 40 MHz crystal.
 - Radio on SPI1: `radio_sck` 14, `radio_mosi` 11, `radio_miso` 8, `radio_nss` 13, `radio_busy` 12, `radio_dio1` 6, `radio_rst` 7.
 - The main serial is on the TX/RX pads (GPIO20/21, UART1), `serial1` is TX only on the TX1 pad (GPIO28, UART0).
-- LEDs: green GPIO19, red GPIO29, active high. No button.
+- LEDs: green GPIO19 is the status `led`, active high; red GPIO29 is unused (ELRS receivers drive one status LED). No button.
 - The core runs from an external 1.1 V LDO; the internal regulator is left on (its output is not connected), which only costs idle current.

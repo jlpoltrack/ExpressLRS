@@ -16,16 +16,16 @@
                 "firmware": "Unified_RP2040_LR2021_RX"
             },
             "rp-mlrs-dual-can": {
-                "product_name": "RP-mLRS-DUAL CAN RX",
+                "product_name": "RP CAN RX",
                 "lua_name": "RP2350 CAN",
-                "layout_file": "RP-mLRS-DUAL CAN.json",
+                "layout_file": "RP CAN.json",
                 "platform": "rp2350",
                 "firmware": "Unified_RP2350_LR2021_RX"
             },
             "rp-mlrs-dual-canfd": {
-                "product_name": "RP-mLRS-DUAL CANFD RX",
+                "product_name": "RP CANFD RX",
                 "lua_name": "RP2350 CANFD",
-                "layout_file": "RP-mLRS-DUAL CANFD.json",
+                "layout_file": "RP CANFD.json",
                 "platform": "rp2350",
                 "firmware": "Unified_RP2350_LR2021_CANFD_RX"
             }

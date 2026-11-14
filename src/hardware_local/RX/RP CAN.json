@@ -3,11 +3,8 @@
     "serial_tx": 20,
     "serial1_tx": 28,
 
-    "can_sck": 2,
-    "can_mosi": 3,
-    "can_miso": 4,
-    "can_cs": 5,
-    "can_int": 1,
+    "can_rx": 1,
+    "can_tx": 4,
 
     "radio_miso": 8,
     "radio_mosi": 11,
@@ -30,6 +27,5 @@
     "power_values": [-9, -1, 5, 12, 21, 29, 44],
     "power_values_dual": [-39, -39, -28, -23, -13, -4, 8],
 
-    "led_green": 19,
-    "led_red": 29
+    "led": 19
 }
