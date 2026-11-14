@@ -93,6 +93,7 @@ class Updater:
         self.last_read = 0
         self.abort_at = None
         self.transfer_errors = 0
+        self.reads = 0
         node.add_handler(uavcan.protocol.NodeStatus, self.on_status)
         node.add_handler(uavcan.protocol.file.Read, self.on_read)
 
@@ -107,6 +108,9 @@ class Updater:
         self.status_time = time.monotonic()
 
     def on_read(self, e):
+        # Reply in the request's frame format: pydronecan otherwise answers in classic frames, ~7x as many on CAN FD
+        self.node.set_canfd(e.transfer.canfd)
+        self.reads += 1
         resp = uavcan.protocol.file.Read.Response()
         if e.request.path.path.decode() != IMAGE_PATH:
             resp.error.value = resp.error.NOT_FOUND
@@ -259,7 +263,7 @@ def main():
             return
 
         took = time.monotonic() - start
-        print(f'transfer done: {len(image)} bytes in {took:.1f}s ({len(image) / took / 1024:.2f} KB/s), receiver rebooted')
+        print(f'transfer done: {len(image)} bytes in {took:.1f}s ({len(image) / took / 1024:.2f} KB/s, {up.reads} reads, {took * 1000 / max(up.reads, 1):.1f} ms each), receiver rebooted')
         up.spin_until(lambda: up.status is not None and up.status.mode == 0 and up.status_time > start, 15, 'operational')
         after = up.describe('after')
         if after.status.health != 0:
