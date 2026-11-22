@@ -19,13 +19,17 @@ built; its target must not include headers or symbols it provides.
 LIBRARY_EXCLUSIONS = {
     # target type -> "*" (all target MCUs) or MCU -> library names
     "TX": {
-        "*": ("AnalogVbat","Baro","dronecan-dsdl","GYRO","libcanard","MSPVTX","PWM","rx-crsf","ServoOutput","VTXSPI"),
+        "*": ("AnalogVbat","Baro","dronecan-dsdl","GYRO","libcanard","mcp251xfd-pico","MSPVTX","PWM","rx-crsf","ServoOutput","VTXSPI"),
         "esp32c3": ("GFX Library for Arduino","U8g2","GSENSOR","SCREEN","THERMAL"),
         "esp8266": ("GSENSOR","SCREEN","THERMAL"),
     },
     "RX": {
         "*": ("ADC","Backpack","BLE","GSENSOR","Handset","POWER_DETECT","SCREEN","tx-crsf","VTX"),
-        "esp8266": ("dronecan-dsdl","VTXSPI"),
+        # mcp251xfd-pico is RP2 only (pico SDK SPI)
+        "esp32": ("mcp251xfd-pico",),
+        "esp32c3": ("mcp251xfd-pico",),
+        "esp32s3": ("mcp251xfd-pico",),
+        "esp8266": ("dronecan-dsdl","mcp251xfd-pico","VTXSPI"),
         "rp2040": ("VTXSPI","THERMAL","SerialUpdate","WIFI"),
         "rp2350": ("VTXSPI","THERMAL","SerialUpdate","WIFI"),
     }

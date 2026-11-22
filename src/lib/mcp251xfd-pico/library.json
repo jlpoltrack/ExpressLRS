@@ -1,0 +1,15 @@
+{
+    "name": "mcp251xfd-pico",
+    "version": "0.1.0",
+    "description": "MCP2518FD/MCP251863 CAN FD controller on SPI for the RP2040/RP2350, polled, with the chip errata handled",
+    "keywords": "can, canfd, mcp2518fd, mcp251863, dronecan, rp2040, rp2350",
+    "license": "GPL-3.0-only",
+    "frameworks": [
+        "arduino",
+        "pico-sdk"
+    ],
+    "platforms": [
+        "raspberrypi"
+    ],
+    "headers": "mcp251xfd.h"
+}
